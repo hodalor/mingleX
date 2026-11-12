@@ -1,0 +1,12 @@
+{
+  "name": "minglex",
+  "private": true,
+  "version": "0.1.0",
+  "description": "mingleX dating app: API, Flutter mobile, React web, React admin",
+  "scripts": {
+    "dev:api": "npm --prefix backend run dev",
+    "dev:web": "npm --prefix web run dev",
+    "dev:admin": "npm --prefix admin run dev",
+    "typecheck:api": "npm --prefix backend run typecheck"
+  }
+}
