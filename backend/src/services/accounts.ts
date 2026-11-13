@@ -1,7 +1,9 @@
+import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
 import { needsOnboarding, toMe, type AccountSource } from "../serializers/user.js";
 import { HttpError } from "../utils/httpError.js";
 import { signToken, type UserRole } from "../utils/tokens.js";
+import { signSignupProof } from "./signup.js";
 
 type ProviderName = "google" | "apple";
 
@@ -64,18 +66,34 @@ export async function loginWithProvider(input: {
   return issueSession(user.id);
 }
 
-export async function loginWithPhone(phone: string) {
-  let user = await User.findOne({ phone });
+export async function continueWithVerifiedPhone(phone: string) {
+  const user = await User.findOne({ phone });
   if (!user) {
-    user = await User.create({
-      phone,
-      providers: ["phone"],
-      name: "",
-      interestedIn: ["woman", "man", "nonbinary"],
-    });
-  } else {
-    user.set("providers", addProvider(user.providers, "phone"));
-    await user.save();
+    return { needsPassword: true as const, phone, proof: signSignupProof("phone", phone) };
   }
+  user.set("providers", addProvider(user.providers, "phone"));
+  await user.save();
+  return issueSession(user.id);
+}
+
+export async function completePhoneSignup(input: {
+  phone: string;
+  password: string;
+  name: string;
+  birthDate: Date;
+  gender: "woman" | "man" | "nonbinary";
+}) {
+  const existing = await User.findOne({ phone: input.phone });
+  if (existing) throw new HttpError(409, "That number already has an account");
+  const passwordHash = await bcrypt.hash(input.password, 12);
+  const user = await User.create({
+    phone: input.phone,
+    passwordHash,
+    name: input.name,
+    birthDate: input.birthDate,
+    gender: input.gender,
+    providers: ["phone"],
+    interestedIn: ["woman", "man", "nonbinary"],
+  });
   return issueSession(user.id);
 }

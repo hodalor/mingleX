@@ -2,13 +2,37 @@ import { z } from "zod";
 
 export const genderSchema = z.enum(["woman", "man", "nonbinary"]);
 
+const e164 = z.string().trim().regex(/^\+[1-9]\d{7,14}$/, "Use a full phone number like +15551234567");
+
 export const registerSchema = z.object({
   email: z.string().trim().email().max(160),
+  emailProof: z.string().min(20),
+  phone: e164.optional(),
+  phoneProof: z.string().min(20).optional(),
   password: z.string().min(8).max(72),
   name: z.string().trim().min(1).max(40),
   birthDate: z.string().trim().min(8).max(40),
   gender: genderSchema,
   interestedIn: z.array(genderSchema).min(1).max(3).optional(),
+});
+
+export const signupSendSchema = z.object({
+  email: z.string().trim().email().max(160),
+  phone: e164.optional(),
+});
+
+export const signupConfirmSchema = signupSendSchema.extend({
+  emailCode: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code"),
+  firebaseIdToken: z.string().trim().min(20).optional(),
+});
+
+export const phoneCompleteSchema = z.object({
+  phone: e164,
+  proof: z.string().min(20),
+  password: z.string().min(8).max(72),
+  name: z.string().trim().min(1).max(40),
+  birthDate: z.string().trim().min(8).max(40),
+  gender: genderSchema,
 });
 
 export const loginSchema = z.object({
@@ -31,6 +55,12 @@ export const photoSchema = z.object({
     "Photo address is not valid",
   ),
   isPrimary: z.boolean().optional(),
+  kind: z.enum(["image", "video"]).optional(),
+});
+
+export const verificationDecisionSchema = z.object({
+  photo: z.enum(["none", "pending", "verified"]).optional(),
+  video: z.enum(["none", "pending", "verified"]).optional(),
 });
 
 export const updateProfileSchema = z
@@ -139,6 +169,14 @@ export const phoneSchema = z.object({
 
 export const phoneVerifySchema = phoneSchema.extend({
   code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code"),
+});
+
+export const firebasePhoneSchema = z.object({
+  idToken: z.string().trim().min(20),
+});
+
+export const deviceTokenSchema = z.object({
+  token: z.string().trim().min(20).max(4096),
 });
 
 export const devProviderSchema = z.object({

@@ -3,26 +3,21 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import multer from "multer";
+import { deletePublicPhoto, gcsConfigured, uploadPublicPhoto } from "./services/storage.js";
 import { HttpError } from "./utils/httpError.js";
 
 export const uploadRoot = path.resolve(process.cwd(), "uploads");
 fs.mkdirSync(uploadRoot, { recursive: true });
 
-const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const imageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const videoTypes = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, callback) => callback(null, uploadRoot),
-    filename: (_req, file, callback) => {
-      const extension = path.extname(file.originalname).toLowerCase();
-      const safe = [".jpg", ".jpeg", ".png", ".webp"].includes(extension) ? extension : ".jpg";
-      callback(null, `${randomUUID()}${safe}`);
-    },
-  }),
-  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024, files: 1 },
   fileFilter: (_req, file, callback) => {
-    if (!allowedTypes.has(file.mimetype)) {
-      callback(new Error("Use a JPEG, PNG, or WEBP photo"));
+    if (!imageTypes.has(file.mimetype) && !videoTypes.has(file.mimetype)) {
+      callback(new Error("Use a JPEG, PNG, or WEBP photo, or an MP4, WEBM, or MOV video"));
       return;
     }
     callback(null, true);
@@ -36,7 +31,7 @@ export function acceptPhoto(req: Request, res: Response, next: NextFunction): vo
       return;
     }
     if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
-      next(new HttpError(400, "Photos must be 5 MB or smaller"));
+      next(new HttpError(400, "Photos must be 5 MB or smaller and videos 25 MB or smaller"));
       return;
     }
     const message = error instanceof Error ? error.message : "That photo could not be uploaded";
@@ -44,10 +39,39 @@ export function acceptPhoto(req: Request, res: Response, next: NextFunction): vo
   });
 }
 
+export function isVideoFile(file: Express.Multer.File): boolean {
+  return file.mimetype.startsWith("video/");
+}
+
+export async function publishPhoto(file: Express.Multer.File): Promise<string> {
+  if (!isVideoFile(file) && file.size > 5 * 1024 * 1024) {
+    throw new HttpError(400, "Photos must be 5 MB or smaller");
+  }
+  const extension = path.extname(file.originalname).toLowerCase();
+  const allowed = new Set([".jpg", ".jpeg", ".png", ".webp", ".mp4", ".webm", ".mov"]);
+  const fallback = isVideoFile(file) ? ".mp4" : ".jpg";
+  const safe = allowed.has(extension) ? extension : fallback;
+  const name = `${randomUUID()}${safe}`;
+  if (gcsConfigured()) {
+    try {
+      return await uploadPublicPhoto(name, file.buffer, file.mimetype);
+    } catch {
+      throw new HttpError(502, "We couldn't store that file. Try again in a moment.");
+    }
+  }
+  await fs.promises.writeFile(path.join(uploadRoot, name), file.buffer);
+  return `/uploads/${name}`;
+}
+
 export function removeStoredPhoto(url: string): void {
-  if (!url.startsWith("/uploads/")) return;
-  const filename = path.basename(url);
-  const fullPath = path.resolve(uploadRoot, filename);
-  if (!fullPath.startsWith(uploadRoot)) return;
-  fs.rmSync(fullPath, { force: true });
+  if (url.startsWith("/uploads/")) {
+    const filename = path.basename(url);
+    const fullPath = path.resolve(uploadRoot, filename);
+    if (!fullPath.startsWith(uploadRoot)) return;
+    fs.rmSync(fullPath, { force: true });
+    return;
+  }
+  void deletePublicPhoto(url).catch(() => {
+    console.error("Stored photo could not be removed");
+  });
 }

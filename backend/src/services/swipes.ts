@@ -6,6 +6,7 @@ import { toPublicProfile, type ProfileSource } from "../serializers/user.js";
 import { Match } from "../models/Match.js";
 import { Message } from "../models/Message.js";
 import { assertCanUse } from "./billing.js";
+import { notifyUser } from "./firebase.js";
 import { orderedPair, toMatchDto } from "./matches.js";
 
 const FREE_LIKES_PER_DAY = 20;
@@ -65,6 +66,8 @@ export async function recordSwipe(fromUserId: string, toUserId: string, directio
         { upsert: true, new: true },
       );
       match = await toMatchDto(saved.id, fromUserId);
+      const me = await User.findById(fromUserId).select("name");
+      void notifyUser(toUserId, "New match", `You matched with ${me?.name || "someone"}`);
     }
   }
 

@@ -4,6 +4,7 @@ const photoSchema = new Schema(
   {
     url: { type: String, required: true },
     isPrimary: { type: Boolean, default: false },
+    kind: { type: String, enum: ["image", "video"], default: "image" },
   },
   { _id: false },
 );
@@ -58,7 +59,12 @@ const userSchema = new Schema(
     isBanned: { type: Boolean, default: false },
     banReason: { type: String, default: "" },
     paidAccess: { type: Boolean, default: false },
+    photoCheck: { type: String, enum: ["none", "pending", "verified"], default: "none" },
+    videoCheck: { type: String, enum: ["none", "pending", "verified"], default: "none" },
+    verificationPhoto: { type: String, default: "" },
+    verificationVideo: { type: String, default: "" },
     boostedUntil: { type: Date },
+    deviceTokens: { type: [String], default: [] },
     lastActiveAt: { type: Date, default: Date.now },
   },
   { timestamps: true },

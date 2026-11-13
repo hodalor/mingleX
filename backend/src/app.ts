@@ -11,6 +11,7 @@ import { matchesRouter } from "./routes/matches.js";
 import { profileRouter } from "./routes/profile.js";
 import { reportsRouter } from "./routes/reports.js";
 import { blocksRouter } from "./routes/blocks.js";
+import { billingRouter } from "./routes/billing.js";
 import { featuresRouter } from "./routes/features.js";
 import { requestsRouter } from "./routes/requests.js";
 import { swipesRouter } from "./routes/swipes.js";
@@ -26,7 +27,12 @@ export function createApp() {
       credentials: true,
     }),
   );
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({
+  limit: "1mb",
+  verify: (req, _res, buf) => {
+    (req as { rawBody?: Buffer }).rawBody = buf;
+  },
+}));
   if (env.nodeEnv !== "production") {
     app.use(morgan("dev"));
   }
@@ -44,6 +50,7 @@ export function createApp() {
   app.use("/api/me", profileRouter);
   app.use("/api/discover", discoverRouter);
   app.use("/api/features", featuresRouter);
+app.use("/api/billing", billingRouter);
   app.use("/api/swipes", swipesRouter);
   app.use("/api/requests", requestsRouter);
   app.use("/api/matches", matchesRouter);

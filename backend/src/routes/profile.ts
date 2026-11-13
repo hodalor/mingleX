@@ -5,9 +5,10 @@ import { toMe, type AccountSource } from "../serializers/user.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { isAtLeast18, parseBirthDate } from "../utils/age.js";
 import { HttpError } from "../utils/httpError.js";
-import { acceptPhoto, removeStoredPhoto } from "../uploads.js";
-import { phoneSchema, phoneVerifySchema, updateProfileSchema } from "../validation/schemas.js";
+import { acceptPhoto, isVideoFile, publishPhoto, removeStoredPhoto } from "../uploads.js";
+import { deviceTokenSchema, firebasePhoneSchema, phoneSchema, phoneVerifySchema, updateProfileSchema } from "../validation/schemas.js";
 import { assertCanUse } from "../services/billing.js";
+import { phoneFromFirebaseToken } from "../services/firebase.js";
 import { sendPhoneCode, verifyPhoneCode } from "../services/phone.js";
 
 export const profileRouter = Router();
@@ -117,19 +118,32 @@ profileRouter.post(
     }
     const user = await User.findById(req.userId);
     if (!user) {
-      removeStoredPhoto(`/uploads/${req.file.filename}`);
       throw new HttpError(401, "Account unavailable");
     }
-    if (user.photos.length >= 6) {
-      removeStoredPhoto(`/uploads/${req.file.filename}`);
+    const video = isVideoFile(req.file);
+    const images = user.photos.filter((photo) => photo.kind !== "video");
+    if (!video && images.length >= 6) {
       throw new HttpError(400, "You can add up to 6 photos");
     }
+    if (video && user.photos.some((photo) => photo.kind === "video")) {
+      throw new HttpError(400, "You can add one video");
+    }
+    const url = await publishPhoto(req.file);
     const photos = [
-      ...user.photos.map((photo) => ({ url: photo.url, isPrimary: Boolean(photo.isPrimary) })),
-      { url: `/uploads/${req.file.filename}`, isPrimary: user.photos.length === 0 },
+      ...user.photos.map((photo) => ({
+        url: photo.url,
+        isPrimary: Boolean(photo.isPrimary),
+        kind: photo.kind === "video" ? "video" : "image",
+      })),
+      { url, isPrimary: user.photos.length === 0, kind: video ? "video" : "image" },
     ];
-    user.set("photos", photos);
-    await user.save();
+    try {
+      user.set("photos", photos);
+      await user.save();
+    } catch (error) {
+      removeStoredPhoto(url);
+      throw error;
+    }
     res.status(201).json({ user: toMe(user as unknown as AccountSource) });
   }),
 );
@@ -138,7 +152,8 @@ profileRouter.delete(
   "/photos",
   asyncHandler(async (req, res) => {
     const url = typeof req.body?.url === "string" ? req.body.url : "";
-    if (!url.startsWith("/uploads/")) {
+    const storedHere = url.startsWith("/uploads/") || url.startsWith("https://storage.googleapis.com/");
+    if (!storedHere) {
       throw new HttpError(400, "That photo cannot be removed");
     }
     const user = await User.findById(req.userId);
@@ -147,7 +162,11 @@ profileRouter.delete(
     }
     const photos = user.photos
       .filter((photo) => photo.url !== url)
-      .map((photo) => ({ url: photo.url, isPrimary: Boolean(photo.isPrimary) }));
+      .map((photo) => ({
+        url: photo.url,
+        isPrimary: Boolean(photo.isPrimary),
+        kind: photo.kind === "video" ? "video" : "image",
+      }));
     if (photos.length === user.photos.length) {
       throw new HttpError(404, "Photo not found");
     }
@@ -193,6 +212,23 @@ profileRouter.post(
   }),
 );
 
+profileRouter.post(
+  "/phone/firebase",
+  asyncHandler(async (req, res) => {
+    const input = firebasePhoneSchema.parse(req.body);
+    const phone = await phoneFromFirebaseToken(input.idToken);
+    const taken = await User.findOne({ phone, _id: { $ne: req.userId } });
+    if (taken) throw new HttpError(409, "That number is already on another account");
+    const user = await User.findById(req.userId);
+    if (!user) throw new HttpError(401, "Account unavailable");
+    user.phone = phone;
+    const providers = user.providers ?? [];
+    if (!providers.includes("phone")) user.providers = [...providers, "phone"];
+    await user.save();
+    res.json({ user: toMe(user as unknown as AccountSource) });
+  }),
+);
+
 profileRouter.delete(
   "/phone",
   asyncHandler(async (req, res) => {
@@ -205,5 +241,58 @@ profileRouter.delete(
     user.providers = (user.providers ?? []).filter((provider) => provider !== "phone");
     await user.save();
     res.json({ user: toMe(user as unknown as AccountSource) });
+  }),
+);
+
+profileRouter.post(
+  "/verification/photo",
+  acceptPhoto,
+  asyncHandler(async (req, res) => {
+    if (!req.file || isVideoFile(req.file)) throw new HttpError(400, "Choose a photo of your face");
+    const user = await User.findById(req.userId);
+    if (!user) throw new HttpError(401, "Account unavailable");
+    const previous = user.verificationPhoto;
+    const url = await publishPhoto(req.file);
+    user.verificationPhoto = url;
+    user.photoCheck = "pending";
+    try {
+      await user.save();
+    } catch (error) {
+      removeStoredPhoto(url);
+      throw error;
+    }
+    if (previous) removeStoredPhoto(previous);
+    res.status(201).json({ user: toMe(user as unknown as AccountSource) });
+  }),
+);
+
+profileRouter.post(
+  "/verification/video",
+  acceptPhoto,
+  asyncHandler(async (req, res) => {
+    if (!req.file || !isVideoFile(req.file)) throw new HttpError(400, "Choose a short video of your face");
+    const user = await User.findById(req.userId);
+    if (!user) throw new HttpError(401, "Account unavailable");
+    const previous = user.verificationVideo;
+    const url = await publishPhoto(req.file);
+    user.verificationVideo = url;
+    user.videoCheck = "pending";
+    try {
+      await user.save();
+    } catch (error) {
+      removeStoredPhoto(url);
+      throw error;
+    }
+    if (previous) removeStoredPhoto(previous);
+    res.status(201).json({ user: toMe(user as unknown as AccountSource) });
+  }),
+);
+
+profileRouter.post(
+  "/device",
+  asyncHandler(async (req, res) => {
+    const input = deviceTokenSchema.parse(req.body);
+    await User.updateOne({ _id: req.userId }, { $addToSet: { deviceTokens: input.token } });
+    res.json({ saved: true });
   }),
 );

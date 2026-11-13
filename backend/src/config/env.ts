@@ -14,8 +14,8 @@ if (jwtSecret.length < 32) {
   throw new Error("JWT_SECRET must be at least 32 characters");
 }
 
-function optional(name: string): string {
-  return process.env[name]?.trim() ?? "";
+function optional(name: string, fallback = ""): string {
+  return process.env[name]?.trim() || fallback;
 }
 
 const appleClientIds = optional("APPLE_CLIENT_ID")
@@ -41,4 +41,15 @@ export const env = {
   smtpUser: optional("SMTP_USER"),
   smtpPass: optional("SMTP_PASS"),
   mailFrom: optional("MAIL_FROM"),
+  firebaseProjectId: optional("FIREBASE_PROJECT_ID"),
+  firebaseClientEmail: optional("FIREBASE_CLIENT_EMAIL"),
+  firebasePrivateKey: optional("FIREBASE_PRIVATE_KEY"),
+  gcsBucket: optional("GCS_BUCKET"),
+  gcsProjectId: optional("GCS_PROJECT_ID"),
+  gcsClientEmail: optional("GCS_CLIENT_EMAIL"),
+  gcsPrivateKey: optional("GCS_PRIVATE_KEY"),
+  paystackSecretKey: optional("PAYSTACK_SECRET_KEY"),
+  paystackPublicKey: optional("PAYSTACK_PUBLIC_KEY"),
+  paystackCurrency: optional("PAYSTACK_CURRENCY", "NGN"),
+  paystackAmount: Number(optional("PAYSTACK_AMOUNT", "250000")) || 250000,
 };

@@ -9,7 +9,7 @@ import { toAdminUser, type AccountSource } from "../serializers/user.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { HttpError } from "../utils/httpError.js";
 import { routeParam } from "../utils/params.js";
-import { banSchema, paidAccessSchema, reportStatusSchema, serviceFlagsSchema } from "../validation/schemas.js";
+import { banSchema, paidAccessSchema, reportStatusSchema, serviceFlagsSchema, verificationDecisionSchema } from "../validation/schemas.js";
 import { paymentFlags, savePaymentFlags, serviceCatalog } from "../services/billing.js";
 
 export const adminRouter = Router();
@@ -196,6 +196,21 @@ adminRouter.patch(
     res.json({
       services: serviceCatalog.map((item) => ({ ...item, requiresPayment: flags[item.id] })),
     });
+  }),
+);
+
+adminRouter.patch(
+  "/users/:id/verification",
+  asyncHandler(async (req, res) => {
+    const input = verificationDecisionSchema.parse(req.body);
+    const userId = routeParam(req.params.id);
+    if (!mongoose.isValidObjectId(userId)) throw new HttpError(400, "Invalid user id");
+    const update: { photoCheck?: string; videoCheck?: string } = {};
+    if (input.photo) update.photoCheck = input.photo;
+    if (input.video) update.videoCheck = input.video;
+    const user = await User.findOneAndUpdate({ _id: userId, role: "user" }, { $set: update }, { new: true });
+    if (!user) throw new HttpError(404, "Member not found");
+    res.json({ user: toAdminUser(user as unknown as AccountSource) });
   }),
 );
 

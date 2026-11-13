@@ -19,7 +19,7 @@ app.set("io", io);
 
 try {
   await connectDb();
-  server.listen(env.port, () => {
+  server.listen(env.port, "0.0.0.0", () => {
     console.log(`mingleX API listening on http://localhost:${env.port}`);
   });
 } catch (error) {

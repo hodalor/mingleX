@@ -36,7 +36,7 @@ export async function toMatchDto(matchId: string, viewerId: string) {
     lastMessageAt: match.lastMessageAt ?? null,
     pending: match.status === "pending",
     unread: 0,
-    otherUser: toPublicProfile(other),
+    otherUser: { ...toPublicProfile(other), phone: other.phone || null },
   };
 }
 

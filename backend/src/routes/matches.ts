@@ -69,7 +69,7 @@ matchesRouter.get(
           matchedAt: match.createdAt,
           lastMessageAt: match.lastMessageAt ?? null,
           unread: unreadByMatch.get(match.id) ?? 0,
-          otherUser: toPublicProfile(other, km),
+          otherUser: { ...toPublicProfile(other, km), phone: other.phone || null },
         };
       }),
     });

@@ -6,7 +6,9 @@ export type ProfileSource = {
   birthDate?: Date | null;
   gender?: string | null;
   bio: string;
-  photos: { url: string; isPrimary: boolean }[];
+  photos: { url: string; isPrimary: boolean; kind?: string | null }[];
+  photoCheck?: string | null;
+  videoCheck?: string | null;
   interests: string[];
   lookingFor?: string | null;
   drinking?: string | null;
@@ -18,6 +20,7 @@ export type ProfileSource = {
   heightCm?: number | null;
   jobTitle: string;
   city: string;
+  phone?: string | null;
   location?: { coordinates?: number[] | null } | null;
 };
 
@@ -52,7 +55,13 @@ export function toPublicProfile(user: ProfileSource, distanceKm?: number) {
     age: user.birthDate ? ageFromBirthDate(user.birthDate) : null,
     gender: user.gender ?? "",
     bio: user.bio,
-    photos: user.photos.map((photo) => ({ url: photo.url, isPrimary: Boolean(photo.isPrimary) })),
+    photos: user.photos.map((photo) => ({
+      url: photo.url,
+      isPrimary: Boolean(photo.isPrimary),
+      kind: photo.kind === "video" ? "video" as const : "image" as const,
+    })),
+    verified: user.photoCheck === "verified",
+    videoVerified: user.videoCheck === "verified",
     interests: [...user.interests],
     lookingFor: user.lookingFor || null,
     drinking: user.drinking || null,
@@ -76,6 +85,9 @@ export function toMe(user: AccountSource) {
     phone: user.phone ?? null,
     providers: [...(user.providers ?? [])],
     role: user.role,
+    paidAccess: Boolean(user.paidAccess),
+    photoCheck: user.photoCheck === "pending" || user.photoCheck === "verified" ? user.photoCheck : "none",
+    videoCheck: user.videoCheck === "pending" || user.videoCheck === "verified" ? user.videoCheck : "none",
     interestedIn: [...(user.interestedIn ?? [])],
     needsOnboarding: needsOnboarding(user),
     discoveryRadiusKm: user.discoveryRadiusKm ?? 100,

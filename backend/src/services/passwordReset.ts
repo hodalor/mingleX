@@ -11,7 +11,7 @@ function hashCode(email: string, code: string): string {
   return createHash("sha256").update(`reset:${email}:${code}:${env.jwtSecret}`).digest("hex");
 }
 
-export async function requestPasswordReset(email: string): Promise<{ sent: true; devCode?: string }> {
+export async function requestPasswordReset(email: string): Promise<{ sent: true }> {
   const normalized = email.toLowerCase();
   const recent = await ResetCode.findOne({
     email: normalized,
@@ -43,11 +43,8 @@ export async function requestPasswordReset(email: string): Promise<{ sent: true;
     }
     return { sent: true };
   }
-  if (env.nodeEnv === "production") {
-    await ResetCode.deleteMany({ email: normalized });
-    throw new HttpError(503, "Password reset email is not set up yet");
-  }
-  return { sent: true, devCode: code };
+  await ResetCode.deleteMany({ email: normalized });
+  throw new HttpError(503, "Password reset email is not set up yet");
 }
 
 export async function resetPassword(email: string, code: string, password: string) {

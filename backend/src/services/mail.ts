@@ -6,8 +6,8 @@ export function mailConfigured(): boolean {
   return Boolean(env.smtpHost && env.smtpUser && env.smtpPass && env.mailFrom);
 }
 
-export async function sendPasswordCode(to: string, code: string): Promise<void> {
-  const transport = nodemailer.createTransport({
+function transport() {
+  return nodemailer.createTransport({
     host: env.smtpHost,
     port: env.smtpPort,
     secure: env.smtpPort === 465,
@@ -16,14 +16,28 @@ export async function sendPasswordCode(to: string, code: string): Promise<void> 
       pass: env.smtpPass,
     },
   });
+}
+
+async function deliver(to: string, subject: string, text: string): Promise<void> {
   try {
-    await transport.sendMail({
-      from: env.mailFrom,
-      to,
-      subject: "Your mingleX password code",
-      text: `Your mingleX password code is ${code}. It expires in 10 minutes. If you did not ask for this, you can ignore the message.`,
-    });
+    await transport().sendMail({ from: env.mailFrom, to, subject, text });
   } catch {
     throw new HttpError(502, "We couldn't send that email. Try again in a moment");
   }
+}
+
+export async function sendSignupCode(to: string, code: string): Promise<void> {
+  await deliver(
+    to,
+    "Your mingleX confirmation code",
+    `Your mingleX code is ${code}. It expires in 10 minutes. Enter it before you choose a password.`,
+  );
+}
+
+export async function sendPasswordCode(to: string, code: string): Promise<void> {
+  await deliver(
+    to,
+    "Your mingleX password code",
+    `Your mingleX password code is ${code}. It expires in 10 minutes. If you did not ask for this, you can ignore the message.`,
+  );
 }

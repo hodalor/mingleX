@@ -2,10 +2,12 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { env } from "../config/env.js";
 import { User } from "../models/User.js";
-import { issueSession, loginWithPhone, loginWithProvider } from "../services/accounts.js";
+import { completePhoneSignup, continueWithVerifiedPhone, issueSession, loginWithProvider } from "../services/accounts.js";
+import { firebaseConfigured, phoneFromFirebaseToken } from "../services/firebase.js";
 import { mailConfigured } from "../services/mail.js";
 import { requestPasswordReset, resetPassword } from "../services/passwordReset.js";
 import { sendPhoneCode, verifyPhoneCode } from "../services/phone.js";
+import { assertSignupProof, confirmSignupCodes, sendSignupCodes } from "../services/signup.js";
 import { verifyAppleToken, verifyGoogleToken } from "../services/providers.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { isAtLeast18, parseBirthDate } from "../utils/age.js";
@@ -14,13 +16,17 @@ import { routeParam } from "../utils/params.js";
 import {
   appleAuthSchema,
   devProviderSchema,
+  firebasePhoneSchema,
   googleAuthSchema,
   forgotPasswordSchema,
   loginSchema,
   phoneSchema,
   resetPasswordSchema,
+  phoneCompleteSchema,
   phoneVerifySchema,
   registerSchema,
+  signupConfirmSchema,
+  signupSendSchema,
 } from "../validation/schemas.js";
 
 export const authRouter = Router();
@@ -33,6 +39,7 @@ authRouter.get("/providers", (_req, res) => {
     googleClientId: env.googleClientId || null,
     appleClientId: env.appleClientIds[0] ?? null,
     sms,
+    firebase: firebaseConfigured(),
     email: mailConfigured(),
     devPreview: env.nodeEnv !== "production",
   });
@@ -52,20 +59,31 @@ authRouter.post(
       throw new HttpError(403, "mingleX is for adults 18 and older");
     }
 
-    const existing = await User.findOne({ email: input.email.toLowerCase() });
+    const email = input.email.toLowerCase();
+    assertSignupProof(input.emailProof, "email", email);
+    if (input.phone && !input.phoneProof) {
+      throw new HttpError(400, "Confirm the phone code before choosing a password");
+    }
+    if (input.phone && input.phoneProof) {
+      assertSignupProof(input.phoneProof, "phone", input.phone);
+      const takenPhone = await User.findOne({ phone: input.phone });
+      if (takenPhone) throw new HttpError(409, "That number is already on another account");
+    }
+    const existing = await User.findOne({ email });
     if (existing) {
       throw new HttpError(409, "An account with this email already exists");
     }
 
     const passwordHash = await bcrypt.hash(input.password, 12);
     const user = await User.create({
-      email: input.email.toLowerCase(),
+      email,
+      ...(input.phone ? { phone: input.phone } : {}),
       passwordHash,
       name: input.name,
       birthDate,
       gender: input.gender,
       interestedIn: input.interestedIn ?? ["woman", "man", "nonbinary"],
-      providers: ["email"],
+      providers: input.phone ? ["email", "phone"] : ["email"],
     });
     res.status(201).json(await issueSession(user.id));
   }),
@@ -149,6 +167,22 @@ authRouter.post(
 );
 
 authRouter.post(
+  "/signup/send",
+  asyncHandler(async (req, res) => {
+    const input = signupSendSchema.parse(req.body);
+    res.json(await sendSignupCodes(input.email, input.phone));
+  }),
+);
+
+authRouter.post(
+  "/signup/confirm",
+  asyncHandler(async (req, res) => {
+    const input = signupConfirmSchema.parse(req.body);
+    res.json(await confirmSignupCodes(input));
+  }),
+);
+
+authRouter.post(
   "/phone/send",
   asyncHandler(async (req, res) => {
     const input = phoneSchema.parse(req.body);
@@ -162,7 +196,34 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const input = phoneVerifySchema.parse(req.body);
     await verifyPhoneCode(input.phone, input.code);
-    res.json(await loginWithPhone(input.phone));
+    res.json(await continueWithVerifiedPhone(input.phone));
+  }),
+);
+
+authRouter.post(
+  "/phone/complete",
+  asyncHandler(async (req, res) => {
+    const input = phoneCompleteSchema.parse(req.body);
+    assertSignupProof(input.proof, "phone", input.phone);
+    let birthDate: Date;
+    try {
+      birthDate = parseBirthDate(input.birthDate);
+    } catch {
+      throw new HttpError(400, "Birth date must be a real date in YYYY-MM-DD form");
+    }
+    if (birthDate.getTime() > Date.now() || !isAtLeast18(birthDate)) {
+      throw new HttpError(403, "mingleX is for adults 18 and older");
+    }
+    res.status(201).json(await completePhoneSignup({ ...input, birthDate }));
+  }),
+);
+
+authRouter.post(
+  "/phone/firebase",
+  asyncHandler(async (req, res) => {
+    const input = firebasePhoneSchema.parse(req.body);
+    const phone = await phoneFromFirebaseToken(input.idToken);
+    res.json(await continueWithVerifiedPhone(phone));
   }),
 );
 

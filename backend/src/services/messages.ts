@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import { Message } from "../models/Message.js";
+import { User } from "../models/User.js";
 import { toMessage } from "../serializers/message.js";
 import { isBlockedPair } from "./blocks.js";
+import { notifyUser } from "./firebase.js";
 import { findMemberMatch } from "./matches.js";
 
 export async function createMessage(matchId: string, senderId: string, text: string) {
@@ -21,6 +23,9 @@ export async function createMessage(matchId: string, senderId: string, text: str
   });
   match.lastMessageAt = message.createdAt;
   await match.save();
+  const sender = await User.findById(senderId).select("name");
+  const preview = text.length > 140 ? `${text.slice(0, 137)}...` : text;
+  void notifyUser(otherId, "New message", `${sender?.name || "Someone"}: ${preview}`);
   return { message: toMessage(message) };
 }
 

@@ -18,7 +18,7 @@ async function profilesFor(ids: string[], superIds: Set<string>, from?: number[]
     const source = person as unknown as ProfileSource;
     const to = source.location?.coordinates;
     const km = from && to ? distanceKm(from, to) : undefined;
-    return [{ ...toPublicProfile(source, km), superLike: superIds.has(id) }];
+    return [{ ...toPublicProfile(source, km), phone: person.phone || null, superLike: superIds.has(id) }];
   });
 }
 

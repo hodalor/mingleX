@@ -51,15 +51,12 @@ export async function sendPhoneCode(phone: string): Promise<{ devCode?: string }
     expiresAt: new Date(Date.now() + 10 * 60 * 1000),
   });
 
-  if (smsConfigured()) {
-    await sendSms(phone, code);
-    return {};
-  }
-  if (env.nodeEnv === "production") {
+  if (!smsConfigured()) {
     await PhoneCode.deleteMany({ phone });
-    throw new HttpError(503, "Phone sign-in is not configured");
+    throw new HttpError(503, "Phone sign-in sends the code through Firebase");
   }
-  return { devCode: code };
+  await sendSms(phone, code);
+  return {};
 }
 
 export async function verifyPhoneCode(phone: string, code: string): Promise<void> {
