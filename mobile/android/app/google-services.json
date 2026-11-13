@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "31319355631",
+    "project_id": "minglex-537b4",
+    "storage_bucket": "minglex-537b4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:31319355631:android:63699de651e88d36bc2b1a",
+        "android_client_info": {
+          "package_name": "com.minglex.android"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "31319355631-lnmlmhiflq0cp908rb2bmp0euetsba8t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCMAclUFtgSwLlxL0q7dhu39MRmyz2ZQPQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "31319355631-lnmlmhiflq0cp908rb2bmp0euetsba8t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

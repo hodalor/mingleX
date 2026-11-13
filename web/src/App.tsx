@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, type AuthResult, type Me, type ProviderConfig } from "./api";
+import { confirmFirebaseSms, firebaseError, sendFirebaseSms } from "./firebase";
 import { DeckApp } from "./deck";
 import { LoveWait } from "./love";
 import { showToast } from "./toast";
@@ -10,7 +11,8 @@ type Screen =
   | { name: "start" }
   | { name: "email" }
   | { name: "phone" }
-  | { name: "code"; phone: string; devCode?: string }
+  | { name: "code"; phone: string }
+  | { name: "phonePassword"; phone: string; proof: string }
   | { name: "onboarding" }
   | { name: "home" }
   | { name: "trouble" }
@@ -142,6 +144,15 @@ export default function App() {
     open(result.needsOnboarding ? { name: "onboarding" } : { name: "home" });
   }
 
+  useEffect(() => {
+    const reference = new URLSearchParams(window.location.search).get("reference");
+    if (!session || !reference) return;
+    void api<{ paidAccess: boolean }>(`/api/billing/verify?reference=${encodeURIComponent(reference)}`, {}, session.token)
+      .then((result) => showToast(result.paidAccess ? "mingleX Plus is on this account." : "The payment is not confirmed yet."))
+      .catch(() => showToast("The payment is not confirmed yet."))
+      .finally(() => window.history.replaceState({}, "", "/"));
+  }, [session]);
+
   async function run<T>(action: () => Promise<T>): Promise<T | undefined> {
     setBusy(true);
     setError("");
@@ -198,6 +209,7 @@ export default function App() {
   return (
     <main className="screen">
       {busy && <LoveWait />}
+      <div id="phone-recaptcha" />
       <section className={screen.name === "home" ? "panel deck-mode" : "panel"}>
         {screen.name === "start" && (
           <GetStarted
@@ -233,11 +245,12 @@ export default function App() {
             onBack={() => open({ name: "start" })}
             onSubmit={(phone) =>
               void run(async () => {
-                const result = await api<{ devCode?: string }>("/api/auth/phone/send", {
-                  method: "POST",
-                  body: JSON.stringify({ phone }),
-                });
-                open({ name: "code", phone, devCode: result.devCode });
+                try {
+                  await sendFirebaseSms(phone);
+                } catch (error) {
+                  throw new ApiError(400, firebaseError(error));
+                }
+                open({ name: "code", phone });
               })
             }
           />
@@ -247,14 +260,24 @@ export default function App() {
             busy={busy}
             error={error}
             phone={screen.phone}
-            devCode={screen.devCode}
             onBack={() => open({ name: "phone" })}
             onSubmit={(code) =>
               void run(async () => {
-                saveSession(await api<AuthResult>("/api/auth/phone/verify", {
+                let idToken = "";
+                try {
+                  idToken = await confirmFirebaseSms(code);
+                } catch (error) {
+                  throw new ApiError(400, firebaseError(error));
+                }
+                const result = await api<AuthResult & { needsPassword?: boolean; proof?: string }>("/api/auth/phone/firebase", {
                   method: "POST",
-                  body: JSON.stringify({ phone: screen.phone, code }),
-                }));
+                  body: JSON.stringify({ idToken }),
+                });
+                if (result.needsPassword && result.proof) {
+                  open({ name: "phonePassword", phone: screen.phone, proof: result.proof });
+                  return;
+                }
+                saveSession(result);
               })
             }
           />
@@ -275,13 +298,28 @@ export default function App() {
           />
         )}
         {screen.name === "home" && session && <DeckApp token={session.token} onSignOut={signOut} />}
+        {screen.name === "phonePassword" && (
+          <PhonePassword
+            busy={busy}
+            error={error}
+            onBack={() => open({ name: "phone" })}
+            onSubmit={(body) =>
+              void run(async () => {
+                saveSession(await api<AuthResult>("/api/auth/phone/complete", {
+                  method: "POST",
+                  body: JSON.stringify({ ...body, phone: screen.phone, proof: screen.proof }),
+                }));
+              })
+            }
+          />
+        )}
         {screen.name === "trouble" && (
           <Trouble
             busy={busy}
             error={error}
             onBack={() => open({ name: "start" })}
             onRequest={(email) =>
-              run(async () => api<{ devCode?: string }>("/api/auth/password/forgot", {
+              run(async () => api("/api/auth/password/forgot", {
                 method: "POST",
                 body: JSON.stringify({ email }),
               }))
@@ -375,7 +413,14 @@ function EmailAuth(props: {
   onSubmit: (body: Record<string, string>, mode: "login" | "register") => void;
 }) {
   const [mode, setMode] = useState<"login" | "register">("login");
+  const [stage, setStage] = useState<"contact" | "code" | "password">("contact");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [phoneCode, setPhoneCode] = useState("");
+  const [emailProof, setEmailProof] = useState("");
+  const [phoneProof, setPhoneProof] = useState("");
+  const [localError, setLocalError] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
@@ -387,25 +432,93 @@ function EmailAuth(props: {
       props.onSubmit({ email, password }, mode);
       return;
     }
-    props.onSubmit({ email, password, name, birthDate, gender }, mode);
+    if (stage === "contact") {
+      void sendCodes();
+      return;
+    }
+    if (stage === "code") {
+      void confirmCodes();
+      return;
+    }
+    props.onSubmit({
+      email,
+      emailProof,
+      password,
+      name,
+      birthDate,
+      gender,
+      ...(phone && phoneProof ? { phone, phoneProof } : {}),
+    }, mode);
+  }
+
+  async function sendCodes() {
+    setLocalError("");
+    try {
+      await api("/api/auth/signup/send", {
+        method: "POST",
+        body: JSON.stringify({ email, ...(phone ? { phone } : {}) }),
+      });
+      if (phone) await sendFirebaseSms(phone);
+      setStage("code");
+    } catch (caught) {
+      setLocalError(caught instanceof ApiError ? caught.message : firebaseError(caught));
+    }
+  }
+
+  async function confirmCodes() {
+    setLocalError("");
+    try {
+      let firebaseIdToken = "";
+      if (phone) firebaseIdToken = await confirmFirebaseSms(phoneCode);
+      const result = await api<{ emailProof: string; phoneProof?: string }>("/api/auth/signup/confirm", {
+        method: "POST",
+        body: JSON.stringify({ email, emailCode, ...(phone ? { phone, firebaseIdToken } : {}) }),
+      });
+      setEmailProof(result.emailProof);
+      setPhoneProof(result.phoneProof ?? "");
+      setStage("password");
+    } catch (caught) {
+      setLocalError(caught instanceof ApiError ? caught.message : firebaseError(caught));
+    }
   }
 
   return (
     <form className="stack" onSubmit={submit}>
       <button className="back" type="button" onClick={props.onBack} aria-label="Back">‹</button>
       <h1 className="form-title">{mode === "login" ? "Log in with email" : "Create account"}</h1>
-      {props.error && <p className="error">{props.error}</p>}
-      <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-      <label>Password<input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-      {mode === "register" && (
+      {(localError || props.error) && <p className="error">{localError || props.error}</p>}
+      {mode === "login" && (
         <>
+          <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+          <label>Password<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+        </>
+      )}
+      {mode === "register" && stage === "contact" && (
+        <>
+          <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+          <label>Phone, if you want it on this account<input inputMode="tel" placeholder="+15551234567" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
+          <p className="preview-note">We send a 6-digit code before you can choose a password.</p>
+        </>
+      )}
+      {mode === "register" && stage === "code" && (
+        <>
+          <label>Email code<input inputMode="numeric" required minLength={6} maxLength={6} value={emailCode} onChange={(event) => setEmailCode(event.target.value)} /></label>
+          {phone && <label>Phone code<input inputMode="numeric" required minLength={6} maxLength={6} value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} /></label>}
+          <p className="preview-note">The code is in your inbox{phone ? " and on your phone" : ""}. It is not shown here.</p>
+        </>
+      )}
+      {mode === "register" && stage === "password" && (
+        <>
+          <label>Password<input type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
           <label>First name<input required maxLength={40} value={name} onChange={(event) => setName(event.target.value)} /></label>
           <label>Birthday<input type="date" required value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /></label>
           <GenderPicker value={gender} onChange={setGender} />
           <p className="preview-note">mingleX is for adults 18 and older.</p>
         </>
       )}
-      <button className="submit" type="submit" disabled={props.busy}>{mode === "login" ? "Log in" : "Agree and continue"}</button>
+      <button className="submit" type="submit" disabled={props.busy}>
+        {mode === "login" ? "Log in" : stage === "password" ? "Agree and continue" : "Continue"}
+      </button>
       {mode === "login" && (
         <button className="switch" type="button" onClick={props.onForgot}>Forgot password?</button>
       )}
@@ -416,6 +529,38 @@ function EmailAuth(props: {
       >
         {mode === "login" ? "New here? Create an account" : "Already have an account? Log in"}
       </button>
+    </form>
+  );
+}
+
+function PhonePassword(props: {
+  busy: boolean;
+  error: string;
+  onBack: () => void;
+  onSubmit: (body: { password: string; name: string; birthDate: string; gender: Gender }) => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [gender, setGender] = useState<Gender>("woman");
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    props.onSubmit({ password, name, birthDate, gender });
+  }
+
+  return (
+    <form className="stack" onSubmit={submit}>
+      <button className="back" type="button" onClick={props.onBack} aria-label="Back">‹</button>
+      <h1 className="form-title">Choose a password</h1>
+      {props.error && <p className="error">{props.error}</p>}
+      <p className="preview-note">The number is confirmed. Set a password before the account opens.</p>
+      <label>Password<input type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+      <label>First name<input required maxLength={40} value={name} onChange={(event) => setName(event.target.value)} /></label>
+      <label>Birthday<input type="date" required value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /></label>
+      <GenderPicker value={gender} onChange={setGender} />
+      <p className="preview-note">mingleX is for adults 18 and older.</p>
+      <button className="submit" type="submit" disabled={props.busy}>Agree and continue</button>
     </form>
   );
 }
@@ -457,7 +602,6 @@ function CodeAuth(props: {
   busy: boolean;
   error: string;
   phone: string;
-  devCode?: string;
   onBack: () => void;
   onSubmit: (code: string) => void;
 }) {
@@ -472,8 +616,7 @@ function CodeAuth(props: {
     >
       <button className="back" type="button" onClick={props.onBack} aria-label="Back">‹</button>
       <h1 className="form-title">Enter your code</h1>
-      <p className="home-copy">We sent a 6-digit code to {props.phone}.</p>
-      {props.devCode && <p className="dev-code">Development code: {props.devCode}</p>}
+      <p className="home-copy">We sent a 6-digit code to {props.phone}. It is on your phone, not on this screen.</p>
       {props.error && <p className="error">{props.error}</p>}
       <input inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} />
       <button className="submit" type="submit" disabled={props.busy}>Continue</button>
@@ -537,22 +680,18 @@ function Trouble(props: {
   busy: boolean;
   error: string;
   onBack: () => void;
-  onRequest: (email: string) => Promise<{ devCode?: string } | void>;
+  onRequest: (email: string) => Promise<unknown>;
   onReset: (body: { email: string; code: string; password: string }) => void;
 }) {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
-  const [devCode, setDevCode] = useState("");
   const [sent, setSent] = useState(false);
 
   async function requestCode(event: FormEvent) {
     event.preventDefault();
     const result = await props.onRequest(email);
-    if (result) {
-      setSent(true);
-      setDevCode(result.devCode ?? "");
-    }
+    if (result !== undefined) setSent(true);
   }
 
   return (
@@ -569,8 +708,7 @@ function Trouble(props: {
       {props.error && <p className="error">{props.error}</p>}
       <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
       <button className="auth-btn outline" type="button" disabled={props.busy} onClick={(event) => void requestCode(event)}>Send code</button>
-      {sent && !devCode && <p className="home-copy">If that email is on mingleX, the code is in the inbox. It expires in 10 minutes.</p>}
-      {devCode && <p className="dev-code">Development code: {devCode}</p>}
+      {sent && <p className="home-copy">If that email is on mingleX, the code is in the inbox. It expires in 10 minutes.</p>}
       <label>Code<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} /></label>
       <label>New password<input type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
       <button className="submit" type="submit" disabled={props.busy || !sent}>Save password and sign in</button>

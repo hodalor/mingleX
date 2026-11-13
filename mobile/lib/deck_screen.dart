@@ -1,10 +1,14 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 import 'love_wait.dart';
 import 'minglex_api.dart';
+import 'push.dart';
 
 class DeckScreen extends StatefulWidget {
   const DeckScreen({super.key, required this.api, required this.token, required this.onSignOut});
@@ -60,10 +64,14 @@ class _DeckScreenState extends State<DeckScreen> {
   String _gender = 'woman';
   String _email = '';
   String _phone = '';
-  String _phoneDevCode = '';
   bool _phoneSent = false;
+  String? _profileVerificationId;
   bool _profileOpen = false;
   List<Map<String, dynamic>> _photos = [];
+  String _photoCheck = 'none';
+  String _videoCheck = 'none';
+  int _cardPhoto = 0;
+  String _cardId = '';
   Map<String, dynamic>? _viewing;
   String _viewKind = '';
 
@@ -71,6 +79,9 @@ class _DeckScreenState extends State<DeckScreen> {
   void initState() {
     super.initState();
     _refresh();
+    unawaited(registerDevice(widget.api, widget.token, (note) {
+      if (mounted) showNote(context, note);
+    }));
   }
 
   @override
@@ -139,6 +150,8 @@ class _DeckScreenState extends State<DeckScreen> {
           _city.text = user['city']?.toString() ?? '';
           final photos = user['photos'];
           _photos = photos is List ? photos.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList() : [];
+          _photoCheck = user['photoCheck']?.toString() ?? 'none';
+          _videoCheck = user['videoCheck']?.toString() ?? 'none';
         }
       });
     } on ApiException catch (error) {
@@ -185,12 +198,44 @@ class _DeckScreenState extends State<DeckScreen> {
   Future<void> _pickPhoto(ImageSource source) async {
     final image = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 82);
     if (image == null) return;
+    await _sendMedia(image.path, '/api/me/photos');
+  }
+
+  Future<void> _pickCheckPhoto() async {
+    final image = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 82);
+    if (image == null) return;
+    await _sendMedia(image.path, '/api/me/verification/photo');
+  }
+
+  Future<void> _pickVideo(ImageSource source, String path) async {
+    final video = await ImagePicker().pickVideo(source: source, maxDuration: const Duration(seconds: 20));
+    if (video == null) return;
+    await _sendMedia(video.path, path);
+  }
+
+  Future<void> _sendMedia(String path, String route) async {
     setState(() => _busy = true);
     try {
-      await widget.api.uploadPhoto(image.path, widget.token);
+      await widget.api.uploadPhoto(path, widget.token, path: route);
       await _refresh();
+      if (mounted && route != '/api/me/photos') showNote(context, 'Sent for review. The badge appears after the team approves it.');
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _buyPlus() async {
+    setState(() => _busy = true);
+    try {
+      final result = await widget.api.postJson('/api/billing/checkout', {}, token: widget.token);
+      final url = result['authorizationUrl']?.toString() ?? '';
+      if (url.isEmpty) throw ApiException('Checkout could not start.');
+      final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!opened && mounted) showNote(context, url);
+    } on ApiException catch (error) {
+      if (mounted) showNote(context, error.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -462,6 +507,15 @@ class _DeckScreenState extends State<DeckScreen> {
           style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54), minimumSize: const Size.fromHeight(52)),
           child: const Text('Save discovery'),
         ),
+        const SizedBox(height: 16),
+        const Text('mingleX Plus', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+        const Text('One payment turns on the features this house has marked as paid.'),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: _busy ? null : _buyPlus,
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54), minimumSize: const Size.fromHeight(52)),
+          child: const Text('Get mingleX Plus'),
+        ),
         const SizedBox(height: 28),
         const Text('About you', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
@@ -729,7 +783,10 @@ class _DeckScreenState extends State<DeckScreen> {
       return const Center(child: Text("You're caught up. No new people in your deck."));
     }
     final card = _profiles.first;
-    final photo = _photoOf(card, widget.api.baseUrl);
+    final photos = _mediaOf(card, widget.api.baseUrl);
+    final cardId = card['id']?.toString() ?? '';
+    final photoIndex = _cardId == cardId ? _cardPhoto.clamp(0, photos.isEmpty ? 0 : photos.length - 1) : 0;
+    final photo = photos.isEmpty ? null : photos[photoIndex];
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Column(
@@ -740,7 +797,57 @@ class _DeckScreenState extends State<DeckScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (photo != null) Image.network(photo, fit: BoxFit.cover) else const ColoredBox(color: Color(0xFFD9E5DE)),
+                  if (photo != null)
+                    photo.video ? _VideoCover(url: photo.url) : Image.network(photo.url, fit: BoxFit.cover)
+                  else
+                    const ColoredBox(color: Color(0xFFD9E5DE)),
+                  if (photos.length > 1)
+                    Positioned(
+                      top: 10,
+                      left: 12,
+                      right: 56,
+                      child: Row(
+                        children: [
+                          for (var index = 0; index < photos.length; index++)
+                            Expanded(
+                              child: Container(
+                                height: 4,
+                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                decoration: BoxDecoration(
+                                  color: index == photoIndex ? const Color(0xFFFFFDF8) : const Color(0x73FFFDF8),
+                                  borderRadius: BorderRadius.circular(99),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  if (photos.length > 1) ...[
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 140,
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          _cardId = cardId;
+                          _cardPhoto = photoIndex == 0 ? 0 : photoIndex - 1;
+                        }),
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 140,
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          _cardId = cardId;
+                          _cardPhoto = photoIndex >= photos.length - 1 ? photoIndex : photoIndex + 1;
+                        }),
+                      ),
+                    ),
+                  ],
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -757,7 +864,10 @@ class _DeckScreenState extends State<DeckScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_titleOf(card), style: const TextStyle(color: Color(0xFFFFFDF8), fontSize: 28, fontWeight: FontWeight.w800)),
+                        Text(
+                          '${_titleOf(card)}${card['verified'] == true ? ' · Verified' : ''}${card['videoVerified'] == true ? ' · Video' : ''}',
+                          style: const TextStyle(color: Color(0xFFFFFDF8), fontSize: 28, fontWeight: FontWeight.w800),
+                        ),
                         if (_subtitleOf(card).isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
@@ -1035,6 +1145,11 @@ class _DeckScreenState extends State<DeckScreen> {
         Text(_titleOf(person), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
         const SizedBox(height: 6),
         Text([person['jobTitle']?.toString() ?? '', place.isEmpty ? 'No city saved' : place, _genderLabel(person['gender']?.toString())].where((item) => item.isNotEmpty).join(' · ')),
+        const SizedBox(height: 8),
+        Text(
+          (person['phone']?.toString().isNotEmpty ?? false) ? 'Phone ${person['phone']}' : 'No phone number on this profile',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
         if ((person['bio']?.toString() ?? '').isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(person['bio'].toString()),
@@ -1134,7 +1249,14 @@ class _DeckScreenState extends State<DeckScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.network(widget.api.mediaUrl(url), height: 220, width: double.infinity, fit: BoxFit.cover)),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: SizedBox(
+                      height: 220,
+                      width: double.infinity,
+                      child: photo['kind'] == 'video' ? _VideoCover(url: widget.api.mediaUrl(url)) : Image.network(widget.api.mediaUrl(url), fit: BoxFit.cover),
+                    ),
+                  ),
                   Row(
                     children: [
                       TextButton(onPressed: _busy ? null : () => _makeMain(url), child: Text(photo['isPrimary'] == true ? 'Main' : 'Make main')),
@@ -1145,7 +1267,18 @@ class _DeckScreenState extends State<DeckScreen> {
               ),
             );
           }),
-        OutlinedButton(onPressed: _busy || _photos.length >= 6 ? null : () => _pickPhoto(ImageSource.gallery), child: const Text('Add photo')),
+        OutlinedButton(
+          onPressed: _busy || _photos.where((photo) => photo['kind'] != 'video').length >= 6 ? null : () => _pickPhoto(ImageSource.gallery),
+          child: const Text('Add photo'),
+        ),
+        OutlinedButton(
+          onPressed: _busy || _photos.any((photo) => photo['kind'] == 'video') ? null : () => _pickVideo(ImageSource.gallery, '/api/me/photos'),
+          child: const Text('Add video'),
+        ),
+        const SizedBox(height: 8),
+        Text('Verify it is you. Photo: $_photoCheck. Video: $_videoCheck. A person on the team reviews these before the badge appears.'),
+        OutlinedButton(onPressed: _busy ? null : _pickCheckPhoto, child: const Text('Photo check')),
+        OutlinedButton(onPressed: _busy ? null : () => _pickVideo(ImageSource.camera, '/api/me/verification/video'), child: const Text('Video check')),
         const SizedBox(height: 12),
         TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name')),
         TextField(controller: _job, decoration: const InputDecoration(labelText: 'Job')),
@@ -1193,7 +1326,6 @@ class _DeckScreenState extends State<DeckScreen> {
         if (_phone.isNotEmpty) TextButton(onPressed: _busy ? null : _removePhone, child: const Text('Remove phone')),
         TextField(controller: _phoneNational, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'New number, like +15551234567')),
         OutlinedButton(onPressed: _busy ? null : _sendPhone, child: const Text('Send code')),
-        if (_phoneDevCode.isNotEmpty) Text('Development code: $_phoneDevCode', style: const TextStyle(color: Color(0xFF8A5A12), fontWeight: FontWeight.w700)),
         if (_phoneSent) ...[
           TextField(controller: _phoneCode, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '6-digit code')),
           FilledButton(onPressed: _busy ? null : _verifyPhone, style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54)), child: const Text('Save number')),
@@ -1251,45 +1383,76 @@ class _DeckScreenState extends State<DeckScreen> {
     }
   }
 
+  Future<void> _attachPhone(PhoneAuthCredential credential) async {
+    final signedIn = await FirebaseAuth.instance.signInWithCredential(credential);
+    final idToken = await signedIn.user?.getIdToken();
+    if (idToken == null) throw ApiException('Phone verification did not go through');
+    await widget.api.postJson('/api/me/phone/firebase', {'idToken': idToken}, token: widget.token);
+    if (!mounted) return;
+    setState(() {
+      _phoneSent = false;
+      _phoneCode.clear();
+      _phoneNational.clear();
+    });
+    showNote(context, 'Phone number saved.');
+    await _refresh();
+  }
+
   Future<void> _sendPhone() async {
+    if (!firebaseReady) {
+      showNote(context, 'Phone verification is not ready on this device.');
+      return;
+    }
     final phone = _phoneNational.text.trim();
     setState(() => _busy = true);
     try {
-      final result = await widget.api.postJson('/api/me/phone/send', {'phone': phone}, token: widget.token);
-      if (!mounted) return;
-      setState(() {
-        _phoneSent = true;
-        _phoneDevCode = result['devCode']?.toString() ?? '';
-      });
-      showNote(context, _phoneDevCode.isEmpty ? 'Code sent.' : 'Code ready on this screen.');
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: phone,
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (credential) {
+          _runPhone(() => _attachPhone(credential));
+        },
+        verificationFailed: (error) {
+          if (mounted) showNote(context, error.message ?? 'Could not send the code');
+        },
+        codeSent: (verificationId, _) {
+          if (!mounted) return;
+          setState(() {
+            _profileVerificationId = verificationId;
+            _phoneSent = true;
+          });
+          showNote(context, 'Code sent to your number.');
+        },
+        codeAutoRetrievalTimeout: (_) {},
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _runPhone(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      await action();
     } on ApiException catch (error) {
       if (mounted) showNote(context, error.message);
+    } on FirebaseAuthException catch (error) {
+      if (mounted) showNote(context, error.message ?? 'That code is not right');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _verifyPhone() async {
-    setState(() => _busy = true);
-    try {
-      await widget.api.postJson('/api/me/phone/verify', {
-        'phone': _phoneNational.text.trim(),
-        'code': _phoneCode.text.trim(),
-      }, token: widget.token);
-      if (!mounted) return;
-      setState(() {
-        _phoneSent = false;
-        _phoneDevCode = '';
-        _phoneCode.clear();
-        _phoneNational.clear();
-      });
-      showNote(context, 'Phone number saved.');
-      await _refresh();
-    } on ApiException catch (error) {
-      if (mounted) showNote(context, error.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+    final verificationId = _profileVerificationId;
+    if (verificationId == null) {
+      showNote(context, 'Send the code to your number first');
+      return;
     }
+    await _runPhone(() => _attachPhone(PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: _phoneCode.text.trim(),
+    )));
   }
 
   Future<void> _removePhone() async {
@@ -1430,16 +1593,73 @@ Map<String, dynamic> _other(Map<String, dynamic> match) {
 }
 
 String? _photoOf(Map<String, dynamic> profile, String baseUrl) {
+  final media = _mediaOf(profile, baseUrl);
+  final still = media.where((item) => !item.video);
+  if (still.isNotEmpty) return still.first.url;
+  return media.isEmpty ? null : media.first.url;
+}
+
+List<({String url, bool video})> _mediaOf(Map<String, dynamic> profile, String baseUrl) {
   final photos = profile['photos'];
-  if (photos is! List || photos.isEmpty) return null;
-  String? raw;
-  for (final photo in photos) {
-    if (photo is Map && photo['isPrimary'] == true && photo['url'] is String) raw = photo['url'] as String;
+  if (photos is! List) return [];
+  final ordered = photos.whereType<Map>().toList()
+    ..sort((left, right) => (right['isPrimary'] == true ? 1 : 0).compareTo(left['isPrimary'] == true ? 1 : 0));
+  return ordered.map((photo) {
+    final raw = photo['url']?.toString() ?? '';
+    if (raw.isEmpty) return null;
+    final url = raw.startsWith('http://') || raw.startsWith('https://') ? raw : '$baseUrl$raw';
+    return (url: url, video: photo['kind'] == 'video');
+  }).whereType<({String url, bool video})>().toList();
+}
+
+class _VideoCover extends StatefulWidget {
+  const _VideoCover({required this.url});
+
+  final String url;
+
+  @override
+  State<_VideoCover> createState() => _VideoCoverState();
+}
+
+class _VideoCoverState extends State<_VideoCover> {
+  late final VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      ..setLooping(true)
+      ..setVolume(0)
+      ..initialize().then((_) {
+        if (!mounted) return;
+        setState(() {});
+        _controller.play();
+      }).catchError((_) {});
   }
-  raw ??= photos.first is Map && photos.first['url'] is String ? photos.first['url'] as String : null;
-  if (raw == null) return null;
-  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-  return '$baseUrl$raw';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_controller.value.isInitialized) {
+      return const ColoredBox(
+        color: Color(0xFF1C2B24),
+        child: Center(child: Text('Video', style: TextStyle(color: Color(0xFFFFFDF8), fontWeight: FontWeight.w700))),
+      );
+    }
+    return FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(
+        width: _controller.value.size.width,
+        height: _controller.value.size.height,
+        child: VideoPlayer(_controller),
+      ),
+    );
+  }
 }
 
 String _titleOf(Map<String, dynamic> profile) {

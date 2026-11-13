@@ -1,7 +1,11 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'deck_screen.dart';
 import 'love_wait.dart';
 import 'minglex_api.dart';
+import 'push.dart';
 
 class AuthFlow extends StatefulWidget {
   const AuthFlow({super.key});
@@ -10,7 +14,7 @@ class AuthFlow extends StatefulWidget {
   State<AuthFlow> createState() => _AuthFlowState();
 }
 
-enum _Step { start, email, phone, code, onboarding, home, trouble, terms }
+enum _Step { start, email, phone, code, phonePassword, onboarding, home, trouble, terms }
 
 class _AuthFlowState extends State<AuthFlow> {
   final _api = MinglexApi();
@@ -18,7 +22,7 @@ class _AuthFlowState extends State<AuthFlow> {
   bool _busy = false;
   String _error = '';
   String _phone = '';
-  String? _devCode;
+  String? _verificationId;
   String? _token;
   bool _creating = false;
 
@@ -32,6 +36,15 @@ class _AuthFlowState extends State<AuthFlow> {
   String _gender = 'woman';
   bool _resetSent = false;
   String _countryCode = '+1';
+  String _emailStage = 'contact';
+  String _emailProof = '';
+  String _phoneProof = '';
+  String _proof = '';
+  String? _signupVerificationId;
+  PhoneAuthCredential? _signupCredential;
+  final _signupPhone = TextEditingController();
+  final _emailCode = TextEditingController();
+  final _phoneCode = TextEditingController();
 
   @override
   void dispose() {
@@ -42,6 +55,9 @@ class _AuthFlowState extends State<AuthFlow> {
     _national.dispose();
     _code.dispose();
     _newPassword.dispose();
+    _signupPhone.dispose();
+    _emailCode.dispose();
+    _phoneCode.dispose();
     super.dispose();
   }
 
@@ -61,6 +77,18 @@ class _AuthFlowState extends State<AuthFlow> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _afterPhone(Map<String, dynamic> result) {
+    if (result['needsPassword'] == true) {
+      setState(() {
+        _proof = result['proof']?.toString() ?? '';
+        _step = _Step.phonePassword;
+        _error = '';
+      });
+      return;
+    }
+    _accept(result);
   }
 
   void _accept(Map<String, dynamic> result) {
@@ -90,6 +118,59 @@ class _AuthFlowState extends State<AuthFlow> {
     });
   }
 
+  Future<void> _firebasePhone(String phone, {bool signup = false}) async {
+    if (!firebaseReady) throw ApiException('Phone verification is not ready on this device.');
+    final done = Completer<void>();
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: phone,
+      timeout: const Duration(seconds: 60),
+      verificationCompleted: (credential) {
+        if (signup) {
+          _signupCredential = credential;
+          if (!done.isCompleted) done.complete();
+          return;
+        }
+        _run(() => _finishFirebase(credential));
+      },
+      verificationFailed: (error) {
+        final message = error.message ?? 'Phone sign-in failed';
+        if (!done.isCompleted) done.completeError(ApiException(message));
+        if (mounted && !signup) showNote(context, message);
+      },
+      codeSent: (verificationId, _) {
+        if (signup) {
+          _signupVerificationId = verificationId;
+        } else {
+          setState(() {
+            _phone = phone;
+            _verificationId = verificationId;
+            _step = _Step.code;
+          });
+        }
+        if (!done.isCompleted) done.complete();
+      },
+      codeAutoRetrievalTimeout: (_) {},
+    );
+    if (signup) await done.future;
+  }
+
+  Future<String?> _signupPhoneToken(String code) async {
+    final credential = _signupCredential ??
+        (_signupVerificationId == null
+            ? null
+            : PhoneAuthProvider.credential(verificationId: _signupVerificationId!, smsCode: code));
+    if (credential == null) throw ApiException('Send the code to your number first');
+    final signedIn = await FirebaseAuth.instance.signInWithCredential(credential);
+    return signedIn.user?.getIdToken();
+  }
+
+  Future<void> _finishFirebase(PhoneAuthCredential credential) async {
+    final signedIn = await FirebaseAuth.instance.signInWithCredential(credential);
+    final idToken = await signedIn.user?.getIdToken();
+    if (idToken == null) throw ApiException('Phone sign-in failed');
+    _afterPhone(await _api.postJson('/api/auth/phone/firebase', {'idToken': idToken}));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,6 +182,7 @@ class _AuthFlowState extends State<AuthFlow> {
               _Step.email => _emailForm(),
               _Step.phone => _phoneForm(),
               _Step.code => _codeForm(),
+              _Step.phonePassword => _phonePassword(),
               _Step.onboarding => _onboarding(),
               _Step.home => _home(),
               _Step.trouble => _trouble(),
@@ -147,10 +229,28 @@ class _AuthFlowState extends State<AuthFlow> {
       title: _creating ? 'Create account' : 'Log in with email',
       onBack: () => setState(() => _step = _Step.start),
       children: [
-        TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email')),
-        const SizedBox(height: 12),
-        TextField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
-        if (_creating) ...[
+        if (!_creating || _emailStage == 'contact')
+          TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email')),
+        if (!_creating) ...[
+          const SizedBox(height: 12),
+          TextField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
+        ],
+        if (_creating && _emailStage == 'contact') ...[
+          const SizedBox(height: 12),
+          TextField(controller: _signupPhone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone, optional, like +15551234567')),
+          const SizedBox(height: 12),
+          const Text('We send a 6-digit code before you can choose a password.'),
+        ],
+        if (_creating && _emailStage == 'code') ...[
+          TextField(controller: _emailCode, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Email code')),
+          if (_signupPhone.text.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            TextField(controller: _phoneCode, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Phone code')),
+          ],
+          const Text('The code is in your inbox, and on your phone if you added a number. It is not shown here.'),
+        ],
+        if (_creating && _emailStage == 'password') ...[
+          TextField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
           const SizedBox(height: 12),
           TextField(controller: _name, decoration: const InputDecoration(labelText: 'First name')),
           const SizedBox(height: 12),
@@ -160,24 +260,59 @@ class _AuthFlowState extends State<AuthFlow> {
           const Text('mingleX is for adults 18 and older.'),
         ],
         const SizedBox(height: 16),
-        _submit(_creating ? 'Agree and continue' : 'Log in', () {
+        _submit(_creating ? (_emailStage == 'password' ? 'Agree and continue' : 'Continue') : 'Log in', () {
           _run(() async {
-            final path = _creating ? '/api/auth/register' : '/api/auth/login';
-            final body = {
+            if (!_creating) {
+              _accept(await _api.postJson('/api/auth/login', {'email': _email.text.trim(), 'password': _password.text}));
+              return;
+            }
+            if (_emailStage == 'contact') {
+              final phone = _signupPhone.text.trim();
+              await _api.postJson('/api/auth/signup/send', {
+                'email': _email.text.trim(),
+                if (phone.isNotEmpty) 'phone': phone,
+              });
+              if (phone.isNotEmpty) {
+                _signupCredential = null;
+                _signupVerificationId = null;
+                await _firebasePhone(phone, signup: true);
+              }
+              setState(() => _emailStage = 'code');
+              return;
+            }
+            if (_emailStage == 'code') {
+              final phone = _signupPhone.text.trim();
+              final idToken = phone.isEmpty ? null : await _signupPhoneToken(_phoneCode.text.trim());
+              final result = await _api.postJson('/api/auth/signup/confirm', {
+                'email': _email.text.trim(),
+                'emailCode': _emailCode.text.trim(),
+                if (phone.isNotEmpty) 'phone': phone,
+                if (idToken != null) 'firebaseIdToken': idToken,
+              });
+              setState(() {
+                _emailProof = result['emailProof']?.toString() ?? '';
+                _phoneProof = result['phoneProof']?.toString() ?? '';
+                _emailStage = 'password';
+              });
+              return;
+            }
+            final phone = _signupPhone.text.trim();
+            _accept(await _api.postJson('/api/auth/register', {
               'email': _email.text.trim(),
+              'emailProof': _emailProof,
               'password': _password.text,
-              if (_creating) 'name': _name.text.trim(),
-              if (_creating) 'birthDate': _birthDate.text.trim(),
-              if (_creating) 'gender': _gender,
-            };
-            _accept(await _api.postJson(path, body));
+              'name': _name.text.trim(),
+              'birthDate': _birthDate.text.trim(),
+              'gender': _gender,
+              if (phone.isNotEmpty && _phoneProof.isNotEmpty) 'phone': phone,
+              if (phone.isNotEmpty && _phoneProof.isNotEmpty) 'phoneProof': _phoneProof,
+            }));
           });
         }),
         if (!_creating)
           TextButton(
             onPressed: () => setState(() {
               _resetSent = false;
-              _devCode = null;
               _step = _Step.trouble;
             }),
             child: const Text('Forgot password?'),
@@ -213,12 +348,7 @@ class _AuthFlowState extends State<AuthFlow> {
           final digits = _national.text.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^0+'), '');
           final phone = '$_countryCode$digits';
           _run(() async {
-            final result = await _api.postJson('/api/auth/phone/send', {'phone': phone});
-            setState(() {
-              _phone = phone;
-              _devCode = result['devCode']?.toString();
-              _step = _Step.code;
-            });
+            await _firebasePhone(phone);
           });
         }),
       ],
@@ -230,14 +360,47 @@ class _AuthFlowState extends State<AuthFlow> {
       title: 'Enter your code',
       onBack: () => setState(() => _step = _Step.phone),
       children: [
-        Text('We sent a 6-digit code to $_phone.'),
-        if (_devCode != null) Text('Development code: $_devCode', style: const TextStyle(color: Color(0xFFFDE68A), fontWeight: FontWeight.w700)),
+        Text('We sent a 6-digit code to $_phone. It is on your phone, not on this screen.'),
         const SizedBox(height: 12),
         TextField(controller: _code, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '6-digit code')),
         const SizedBox(height: 16),
         _submit('Continue', () {
           _run(() async {
-            _accept(await _api.postJson('/api/auth/phone/verify', {'phone': _phone, 'code': _code.text.trim()}));
+            if (_verificationId == null) throw ApiException('Send the code to your number first');
+            final credential = PhoneAuthProvider.credential(verificationId: _verificationId!, smsCode: _code.text.trim());
+            await _finishFirebase(credential);
+          });
+        }),
+      ],
+    );
+  }
+
+  Widget _phonePassword() {
+    return _page(
+      title: 'Choose a password',
+      onBack: () => setState(() => _step = _Step.phone),
+      children: [
+        const Text('The number is confirmed. Set a password before the account opens.'),
+        const SizedBox(height: 12),
+        TextField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
+        const SizedBox(height: 12),
+        TextField(controller: _name, decoration: const InputDecoration(labelText: 'First name')),
+        const SizedBox(height: 12),
+        TextField(controller: _birthDate, decoration: const InputDecoration(labelText: 'Birthday YYYY-MM-DD')),
+        const SizedBox(height: 12),
+        _genders(),
+        const Text('mingleX is for adults 18 and older.'),
+        const SizedBox(height: 16),
+        _submit('Agree and continue', () {
+          _run(() async {
+            _accept(await _api.postJson('/api/auth/phone/complete', {
+              'phone': _phone,
+              'proof': _proof,
+              'password': _password.text,
+              'name': _name.text.trim(),
+              'birthDate': _birthDate.text.trim(),
+              'gender': _gender,
+            }));
           });
         }),
       ],
@@ -295,19 +458,12 @@ class _AuthFlowState extends State<AuthFlow> {
         const SizedBox(height: 12),
         _submit('Send code', () {
           _run(() async {
-            final result = await _api.postJson('/api/auth/password/forgot', {'email': _email.text.trim()});
-            setState(() {
-              _resetSent = true;
-              _devCode = result['devCode']?.toString();
-            });
-            if (mounted) showNote(context, result['devCode'] == null ? 'If that email is on mingleX, the code is in the inbox.' : 'Code ready on this screen.');
+            await _api.postJson('/api/auth/password/forgot', {'email': _email.text.trim()});
+            setState(() => _resetSent = true);
+            if (mounted) showNote(context, 'If that email is on mingleX, the code is in the inbox.');
           });
         }),
-        if (_devCode != null && _devCode!.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text('Development code: $_devCode', style: const TextStyle(color: Color(0xFF8A5A12), fontWeight: FontWeight.w700)),
-          ),
+        if (_resetSent) const Text('If that email is on mingleX, the code is in the inbox. It expires in 10 minutes.'),
         const SizedBox(height: 12),
         TextField(controller: _code, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '6-digit code')),
         const SizedBox(height: 12),

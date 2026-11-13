@@ -315,6 +315,93 @@ input[type="range"] {
   accent-color: #1f6f54;
 }
 
+.deck-body:has(.chat) {
+  overflow: hidden;
+}
+
+.person-card {
+  flex: none;
+  height: 360px;
+  min-height: 360px;
+}
+
+.detail-sheet h2 {
+  margin: 0;
+  text-align: left;
+  font-size: 28px;
+}
+
+.detail-sheet p {
+  margin: 8px 0 0;
+  color: #1c2b24;
+}
+
+.detail-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.detail-facts span {
+  border: 1px solid #d5cec2;
+  background: #fffdf8;
+  color: #1c2b24;
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+.chat.stack {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  gap: 8px;
+}
+
+.chat-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.chat-head .form-title {
+  margin: 0;
+  font-size: 22px;
+}
+
+.chat .messages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat .messages::before {
+  content: "";
+  flex: 1 0 auto;
+}
+
+.chat .messages .mine { align-self: flex-end; }
+.chat .messages .theirs { align-self: flex-start; }
+.chat .messages .seen { align-self: flex-end; }
+.chat .messages p { flex-shrink: 0; }
+.chat .composer { flex-shrink: 0; }
+
+.deck-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #1c2b24;
+}
+
 .deck-card {
   position: relative;
   flex: 1;
@@ -359,11 +446,43 @@ input[type="range"] {
 .round.like { color: #fffdf8; background: #1f6f54; border: 0; }
 .round:disabled { opacity: 0.5; }
 
+.photo-bars {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 68px;
+  z-index: 3;
+  display: flex;
+  gap: 4px;
+}
+
+.photo-bars span {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.45);
+}
+
+.photo-bars span.on { background: #fffdf8; }
+
+.card-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 46%;
+  z-index: 2;
+  border: 0;
+  background: transparent;
+}
+
+.card-zone.left { left: 0; }
+.card-zone.right { right: 0; }
+
 .card-menu {
   position: absolute;
   top: 16px;
   right: 16px;
-  z-index: 1;
+  z-index: 3;
   width: 42px;
   height: 42px;
   border: 0;

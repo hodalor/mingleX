@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, ApiError, mediaUrl, uploadPhoto } from "./api";
+import { api, ApiError, mediaUrl, uploadFile, uploadPhoto } from "./api";
+import { confirmFirebaseSms, firebaseError, sendFirebaseSms } from "./firebase";
 import { LoveWait } from "./love";
 import { showToast } from "./toast";
 
-type Photo = { url: string; isPrimary: boolean };
+type Photo = { url: string; isPrimary: boolean; kind?: "image" | "video" };
 
 type Account = {
   name: string;
@@ -24,6 +25,8 @@ type Account = {
   kids: string | null;
   heightCm: number | null;
   photos: Photo[];
+  photoCheck?: "none" | "pending" | "verified";
+  videoCheck?: "none" | "pending" | "verified";
   interestedIn: string[];
   providers: string[];
 };
@@ -83,7 +86,6 @@ export function MyProfile(props: { token: string }) {
   const [prefix, setPrefix] = useState("+1");
   const [national, setNational] = useState("");
   const [phoneCode, setPhoneCode] = useState("");
-  const [devCode, setDevCode] = useState("");
   const [phoneSent, setPhoneSent] = useState(false);
 
   useEffect(() => {
@@ -154,9 +156,24 @@ export function MyProfile(props: { token: string }) {
       const me = await api<{ user: Account }>("/api/me", {}, props.token);
       setAccount(blank(me.user));
       void result;
-      showToast("Photo added.");
+      showToast(file.type.startsWith("video/") ? "Video added." : "Photo added.");
     } catch (caught) {
       showToast(caught instanceof ApiError ? caught.message : "That photo didn't upload.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitCheck(kind: "photo" | "video", file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      await uploadFile(kind === "photo" ? "/api/me/verification/photo" : "/api/me/verification/video", file, props.token);
+      const me = await api<{ user: Account }>("/api/me", {}, props.token);
+      setAccount(blank(me.user));
+      showToast("Sent for review. The badge appears after a person on the team approves it.");
+    } catch (caught) {
+      showToast(caught instanceof ApiError ? caught.message : "That check didn't upload.");
     } finally {
       setBusy(false);
     }
@@ -201,15 +218,11 @@ export function MyProfile(props: { token: string }) {
     const digits = national.replace(/\D/g, "").replace(/^0+/, "");
     setBusy(true);
     try {
-      const result = await api<{ devCode?: string }>("/api/me/phone/send", {
-        method: "POST",
-        body: JSON.stringify({ phone: `${prefix}${digits}` }),
-      }, props.token);
+      await sendFirebaseSms(`${prefix}${digits}`);
       setPhoneSent(true);
-      setDevCode(result.devCode ?? "");
-      showToast(result.devCode ? "Code ready on this screen." : "Code sent.");
+      showToast("Code sent to your number.");
     } catch (caught) {
-      showToast(caught instanceof ApiError ? caught.message : "That number didn't send.");
+      showToast(caught instanceof ApiError ? caught.message : firebaseError(caught));
     } finally {
       setBusy(false);
     }
@@ -217,21 +230,20 @@ export function MyProfile(props: { token: string }) {
 
   async function verifyPhone(event: FormEvent) {
     event.preventDefault();
-    const digits = national.replace(/\D/g, "").replace(/^0+/, "");
     setBusy(true);
     try {
-      const result = await api<{ user: Account }>("/api/me/phone/verify", {
+      const idToken = await confirmFirebaseSms(phoneCode);
+      const result = await api<{ user: Account }>("/api/me/phone/firebase", {
         method: "POST",
-        body: JSON.stringify({ phone: `${prefix}${digits}`, code: phoneCode }),
+        body: JSON.stringify({ idToken }),
       }, props.token);
       setAccount(blank(result.user));
       setPhoneSent(false);
       setPhoneCode("");
       setNational("");
-      setDevCode("");
       showToast("Phone number saved.");
     } catch (caught) {
-      showToast(caught instanceof ApiError ? caught.message : "That code didn't work.");
+      showToast(caught instanceof ApiError ? caught.message : firebaseError(caught));
     } finally {
       setBusy(false);
     }
@@ -278,18 +290,37 @@ export function MyProfile(props: { token: string }) {
       <div className="photo-grid">
         {account.photos.map((photo) => (
           <div className="photo-tile" key={photo.url}>
-            <img src={mediaUrl(photo.url)} alt="" />
+            {photo.kind === "video" ? <video src={mediaUrl(photo.url)} muted /> : <img src={mediaUrl(photo.url)} alt="" />}
             <button type="button" onClick={() => void makeMain(photo.url)}>{photo.isPrimary ? "Main" : "Make main"}</button>
             <button type="button" onClick={() => void removePhoto(photo.url)}>Remove</button>
           </div>
         ))}
-        {account.photos.length < 6 && (
+        {account.photos.filter((photo) => photo.kind !== "video").length < 6 && (
           <label className="photo-add">
             Add photo
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void addPhoto(event.target.files?.[0])} />
           </label>
         )}
+        {!account.photos.some((photo) => photo.kind === "video") && (
+          <label className="photo-add">
+            Add video
+            <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(event) => void addPhoto(event.target.files?.[0])} />
+          </label>
+        )}
       </div>
+      <section className="stack">
+        <h2>Verify it's you</h2>
+        <p className="home-copy">Send a photo of your face and a short video. A person on the team reviews them before the verified badge shows on your card. This is not an automatic face match.</p>
+        <p className="preview-note">Photo: {account.photoCheck ?? "none"}. Video: {account.videoCheck ?? "none"}.</p>
+        <label className="file-pick">
+          Photo check
+          <input type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={(event) => void submitCheck("photo", event.target.files?.[0])} />
+        </label>
+        <label className="file-pick">
+          Video check
+          <input type="file" accept="video/mp4,video/webm,video/quicktime" capture="user" onChange={(event) => void submitCheck("video", event.target.files?.[0])} />
+        </label>
+      </section>
       <label>Name<input maxLength={40} required value={account.name} onChange={(event) => patch({ name: event.target.value })} /></label>
       <label>Job<input maxLength={60} value={account.jobTitle} onChange={(event) => patch({ jobTitle: event.target.value })} /></label>
       <label>City<input maxLength={80} value={account.city} onChange={(event) => patch({ city: event.target.value })} /></label>
@@ -377,7 +408,7 @@ export function MyProfile(props: { token: string }) {
         <button className="auth-btn outline" type="button" disabled={busy || national.trim() === ""} onClick={(event) => void sendPhone(event)}>Send code</button>
         {phoneSent && (
           <>
-            {devCode && <p className="dev-code">Development code: {devCode}</p>}
+            <p className="home-copy">Enter the code Firebase sent to your number.</p>
             <input inputMode="numeric" placeholder="6-digit code" value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} />
             <button className="submit" type="button" disabled={busy} onClick={(event) => void verifyPhone(event)}>Save number</button>
           </>

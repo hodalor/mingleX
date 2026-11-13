@@ -7,9 +7,13 @@ export function mediaUrl(url: string | undefined): string | undefined {
 }
 
 export async function uploadPhoto(file: File, token: string) {
+  return uploadFile("/api/me/photos", file, token);
+}
+
+export async function uploadFile(path: string, file: File, token: string) {
   const body = new FormData();
   body.append("photo", file);
-  return api<{ user: Me }>("/api/me/photos", { method: "POST", body }, token);
+  return api<{ user: Me }>(path, { method: "POST", body }, token);
 }
 
 export class ApiError extends Error {
@@ -45,6 +49,7 @@ export type ProviderConfig = {
   googleClientId: string | null;
   appleClientId: string | null;
   sms: boolean;
+  firebase: boolean;
   email: boolean;
   devPreview: boolean;
 };

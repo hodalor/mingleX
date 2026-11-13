@@ -1,10 +1,10 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { api, ApiError, mediaUrl, uploadPhoto } from "./api";
 import { LoveWait } from "./love";
 import { MyProfile } from "./profile";
 import { showToast } from "./toast";
 
-type Photo = { url: string; isPrimary: boolean };
+type Photo = { url: string; isPrimary: boolean; kind?: "image" | "video" };
 
 export type Profile = {
   id: string;
@@ -25,6 +25,9 @@ export type Profile = {
   photos: Photo[];
   gender?: string;
   distanceKm?: number;
+  phone?: string | null;
+  verified?: boolean;
+  videoVerified?: boolean;
 };
 
 type DiscoverResponse = {
@@ -90,6 +93,7 @@ export function DeckApp(props: { token: string; onSignOut: () => void }) {
   const [safetyStep, setSafetyStep] = useState<"menu" | "report">("menu");
   const [reason, setReason] = useState<"harassment" | "fake" | "spam" | "underage" | "other">("harassment");
   const [details, setDetails] = useState("");
+  const [cardPhoto, setCardPhoto] = useState(0);
 
   async function loadDeck() {
     const data = await api<DiscoverResponse>("/api/discover?limit=20", {}, props.token);
@@ -131,6 +135,14 @@ export function DeckApp(props: { token: string; onSignOut: () => void }) {
   }, [props.token]);
 
   const current = profiles[0];
+  const deckPhotos = current
+    ? [...current.photos.filter((item) => item.isPrimary), ...current.photos.filter((item) => !item.isPrimary)]
+    : [];
+  const shownPhoto = deckPhotos[cardPhoto] ?? deckPhotos[0];
+
+  useEffect(() => {
+    setCardPhoto(0);
+  }, [current?.id]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -349,19 +361,31 @@ export function DeckApp(props: { token: string; onSignOut: () => void }) {
       {!loading && tab === "deck" && incomplete && (
         <form className="stack">
           <h1 className="form-title">Add a photo</h1>
-          <p className="home-copy">People only see you after your first photo. Choose one from your camera roll. JPEG, PNG, or WEBP, up to 5 MB.</p>
+          <p className="home-copy">People only see you after your first photo. JPEG, PNG, or WEBP up to 5 MB, or one MP4, WEBM, or MOV video up to 25 MB.</p>
           <label className="file-pick">
-            Choose a photo
-            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void onPhotoSelected(event)} disabled={busy} />
+            Choose a photo or video
+            <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" onChange={(event) => void onPhotoSelected(event)} disabled={busy} />
           </label>
         </form>
       )}
       {!loading && tab === "deck" && !incomplete && current && (
         <>
-          <article className="deck-card" style={{ backgroundImage: `url("${primaryPhoto(current) ?? ""}")` }}>
+          <article className="deck-card" style={shownPhoto && shownPhoto.kind !== "video" ? { backgroundImage: `url("${mediaUrl(shownPhoto.url)}")` } : undefined}>
+            {shownPhoto?.kind === "video" && <video className="deck-video" src={mediaUrl(shownPhoto.url)} playsInline autoPlay muted loop />}
+            {deckPhotos.length > 1 && (
+              <div className="photo-bars" aria-hidden="true">
+                {deckPhotos.map((item, index) => <span key={item.url} className={index === cardPhoto ? "on" : ""} />)}
+              </div>
+            )}
+            {deckPhotos.length > 1 && (
+              <>
+                <button className="card-zone left" type="button" aria-label="Previous photo" onClick={() => setCardPhoto((index) => Math.max(0, index - 1))} />
+                <button className="card-zone right" type="button" aria-label="Next photo" onClick={() => setCardPhoto((index) => Math.min(deckPhotos.length - 1, index + 1))} />
+              </>
+            )}
             <button className="card-menu" type="button" disabled={busy} onClick={() => openSafety(current)} aria-label="Report or block">···</button>
             <div className="deck-meta">
-              <h2>{profileTitle(current)}</h2>
+              <h2>{profileTitle(current)}{current.verified ? " · Verified" : ""}{current.videoVerified ? " · Video" : ""}</h2>
               <p>
                 {[current.jobTitle, current.city, current.distanceKm !== undefined ? `${current.distanceKm} km away` : ""]
                   .filter(Boolean)
@@ -487,6 +511,7 @@ export function DeckApp(props: { token: string; onSignOut: () => void }) {
       {tab === "settings" && (
         <div className="settings">
           <DiscoverySettings token={props.token} onSaved={() => void loadDeck()} />
+          <PlusCheckout token={props.token} />
           <AboutYou token={props.token} />
         </div>
       )}
@@ -594,6 +619,30 @@ export function DeckApp(props: { token: string; onSignOut: () => void }) {
         </div>
       )}
     </div>
+  );
+}
+
+function PlusCheckout(props: { token: string }) {
+  const [busy, setBusy] = useState(false);
+
+  async function start() {
+    setBusy(true);
+    try {
+      const result = await api<{ authorizationUrl: string }>("/api/billing/checkout", { method: "POST" }, props.token);
+      window.location.assign(result.authorizationUrl);
+    } catch (caught) {
+      showToast(caught instanceof ApiError ? caught.message : "Checkout could not start.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="stack">
+      <h2>mingleX Plus</h2>
+      <p className="home-copy">One payment turns on the features this house has marked as paid. Checkout stays closed until the Paystack keys are in place.</p>
+      <button className="submit" type="button" disabled={busy} onClick={() => void start()}>Get mingleX Plus</button>
+    </section>
   );
 }
 
@@ -988,13 +1037,14 @@ function PersonDetail(props: {
   const photo = person.photos[photoIndex] ?? person.photos[0];
   const place = [person.city, person.distanceKm !== undefined ? `${person.distanceKm} km away` : ""].filter(Boolean).join(" · ");
   const gender = person.gender === "woman" ? "Woman" : person.gender === "man" ? "Man" : person.gender === "nonbinary" ? "Nonbinary" : "";
+  const facts = [...profileFacts(person), ...person.interests];
   return (
     <div className="stack">
       <button className="back" type="button" onClick={props.onBack} aria-label="Back">‹</button>
-      <article className="deck-card" style={{ backgroundImage: `url("${mediaUrl(photo?.url) ?? ""}")` }}>
+      <article className="deck-card person-card" style={photo && photo.kind !== "video" ? { backgroundImage: `url("${mediaUrl(photo.url)}")` } : undefined}>
+        {photo?.kind === "video" && <video className="deck-video" src={mediaUrl(photo.url)} playsInline controls />}
         <div className="deck-meta">
           <h2>{profileTitle(person)}</h2>
-          <p>{[person.jobTitle, place || "No city saved", gender].filter(Boolean).join(" · ")}</p>
         </div>
       </article>
       {person.photos.length > 1 && (
@@ -1006,9 +1056,13 @@ function PersonDetail(props: {
           ))}
         </div>
       )}
-      {person.bio && <p className="home-copy">{person.bio}</p>}
-      {profileFacts(person).length > 0 && <div className="chips">{profileFacts(person).map((fact) => <span key={fact}>{fact}</span>)}</div>}
-      {person.interests.length > 0 && <div className="chips">{person.interests.map((interest) => <span key={interest}>{interest}</span>)}</div>}
+      <section className="detail-sheet">
+        <h2>{profileTitle(person)}</h2>
+        <p>{[person.jobTitle, place || "No city saved", gender].filter(Boolean).join(" · ")}</p>
+        <p>{person.phone ? `Phone ${person.phone}` : "No phone number on this profile"}</p>
+        {person.bio ? <p>{person.bio}</p> : <p>No bio yet.</p>}
+        {facts.length > 0 && <div className="detail-facts">{facts.map((fact) => <span key={fact}>{fact}</span>)}</div>}
+      </section>
       <button className="submit" type="button" onClick={props.onMessage}>Message</button>
       {props.opened.kind === "incoming" && (
         <div className="pair">
@@ -1033,6 +1087,7 @@ function Chat(props: { token: string; match: Match; onBack: () => void; onSafety
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [leaving, setLeaving] = useState(false);
+  const scroller = useRef<HTMLDivElement>(null);
 
   async function leave() {
     setLeaving(true);
@@ -1083,16 +1138,23 @@ function Chat(props: { token: string; match: Match; onBack: () => void; onSafety
     }
   }
 
+  useEffect(() => {
+    const node = scroller.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [messages]);
+
   return (
     <div className="stack chat">
-      <button className="back" type="button" onClick={props.onBack} aria-label="Back">‹</button>
-      <h1 className="form-title">{props.match.otherUser.name}</h1>
-      <button className="text-btn" type="button" onClick={props.onSafety}>Report or block</button>
-      <button className="text-btn" type="button" disabled={leaving} onClick={() => void leave()}>
-        {props.match.pending ? "Cancel chat" : "Unmatch"}
-      </button>
+      <div className="chat-head">
+        <button className="back" type="button" onClick={props.onBack} aria-label="Back">‹</button>
+        <h1 className="form-title">{props.match.otherUser.name}</h1>
+        <button className="text-btn" type="button" onClick={props.onSafety}>Report or block</button>
+        <button className="text-btn" type="button" disabled={leaving} onClick={() => void leave()}>
+          {props.match.pending ? "Cancel chat" : "Unmatch"}
+        </button>
+      </div>
       {error && <p className="error">{error}</p>}
-      <div className="messages">
+      <div className="messages" ref={scroller}>
         {messages.map((message) => (
           <p key={message.id} className={message.senderId === props.match.otherUser.id ? "theirs" : "mine"}>{message.text}</p>
         ))}

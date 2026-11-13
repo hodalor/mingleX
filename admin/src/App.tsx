@@ -52,6 +52,8 @@ type Member = {
   discoveryMaxAge: number;
   interestedIn: string[];
   paidAccess: boolean;
+  photoCheck?: "none" | "pending" | "verified";
+  videoCheck?: "none" | "pending" | "verified";
 };
 
 type ReportRow = {
@@ -549,6 +551,23 @@ function MemberDetail(props: { token: string; member: Member; onChanged: (member
     }
   }
 
+  async function review(kind: "photo" | "video", value: "verified" | "none") {
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api<{ user: Member }>(`/api/admin/users/${props.member.id}/verification`, {
+        method: "PATCH",
+        body: JSON.stringify({ [kind]: value }),
+      }, props.token);
+      props.onChanged(result.user);
+      showToast(value === "verified" ? "Check approved." : "Check rejected.");
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "The check didn't save.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function ban(banned: boolean) {
     setBusy(true);
     setError("");
@@ -600,6 +619,11 @@ function MemberDetail(props: { token: string; member: Member; onChanged: (member
       ) : (
         <button className="danger" type="button" disabled={busy} onClick={() => void ban(true)}>Ban from the apps</button>
       )}
+      <p className="home-copy">Photo check: {props.member.photoCheck ?? "none"}. Video check: {props.member.videoCheck ?? "none"}.</p>
+      <button className="primary" type="button" disabled={busy} onClick={() => void review("photo", "verified")}>Approve photo</button>
+      <button type="button" disabled={busy} onClick={() => void review("photo", "none")}>Reject photo</button>
+      <button className="primary" type="button" disabled={busy} onClick={() => void review("video", "verified")}>Approve video</button>
+      <button type="button" disabled={busy} onClick={() => void review("video", "none")}>Reject video</button>
       <button className="primary" type="button" disabled={busy} onClick={() => void grant(!props.member.paidAccess)}>
         {props.member.paidAccess ? "Remove paid access" : "Grant paid access"}
       </button>

@@ -70,8 +70,8 @@ class MinglexApi {
     return data;
   }
 
-  Future<void> uploadPhoto(String filePath, String token) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/me/photos'));
+  Future<void> uploadPhoto(String filePath, String token, {String path = '/api/me/photos'}) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'));
     request.headers['Authorization'] = 'Bearer $token';
     request.files.add(await http.MultipartFile.fromPath('photo', filePath));
     late http.StreamedResponse streamed;

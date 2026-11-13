@@ -1,0 +1,11 @@
+.git
+mobile
+web/node_modules
+admin/node_modules
+backend/node_modules
+backend/dist
+backend/uploads
+backend/.env
+backend/.ENV
+**/.env
+**/.ENV

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'auth_flow.dart';
+import 'push.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await prepareFirebase();
   runApp(const MinglexApp());
 }
 
