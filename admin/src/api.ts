@@ -1,6 +1,13 @@
 const CLOUD_RUN_API = "https://minglex-31319355631.europe-west9.run.app";
 const fromEnv = String(import.meta.env.VITE_API_URL ?? "").trim().replace(/\/$/, "");
-export const API_URL = fromEnv || (import.meta.env.PROD ? CLOUD_RUN_API : "http://localhost:4000");
+const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(fromEnv);
+// Production must never call localhost — ignore a mis-set Netlify env pointing at :4000.
+export const API_URL =
+  import.meta.env.PROD
+    ? fromEnv && !isLocal
+      ? fromEnv
+      : CLOUD_RUN_API
+    : fromEnv || "http://localhost:4000";
 
 export class ApiError extends Error {
   status: number;

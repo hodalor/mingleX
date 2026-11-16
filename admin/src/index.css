@@ -93,8 +93,8 @@ textarea { resize: vertical; }
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #f4f1ff;
-  color: #0f1524;
+  background: #161d2f;
+  color: #f4f1ff;
 }
 
 .brand {
@@ -104,7 +104,7 @@ textarea { resize: vertical; }
   gap: 10px;
   height: 72px;
   padding: 0 18px;
-  border-bottom: 1px solid rgba(243, 238, 228, 0.12);
+  border-bottom: 1px solid #2a3348;
 }
 
 .brand strong { font-size: 22px; }
@@ -126,12 +126,12 @@ textarea { resize: vertical; }
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: #d7e4dc;
+  color: #b8b3c9;
   padding: 10px 12px;
   font-weight: 700;
 }
 
-.menu button.selected { background: rgba(243, 238, 228, 0.12); color: #161d2f; }
+.menu button.selected { background: rgba(232, 74, 168, 0.16); color: #f4f1ff; }
 
 .workspace {
   min-width: 0;
@@ -151,7 +151,7 @@ textarea { resize: vertical; }
   gap: 16px;
   padding: 0 24px;
   background: #12192a;
-  border-bottom: 1px solid #e4ddd0;
+  border-bottom: 1px solid #2a3348;
 }
 
 .topbar h1 { margin: 0; font-size: 22px; }
@@ -188,7 +188,7 @@ textarea { resize: vertical; }
   gap: 16px;
 }
 
-.muted { margin: 0; color: #5c675f; }
+.muted { margin: 0; color: #b8b3c9; }
 
 .filters {
   display: flex;
@@ -209,14 +209,14 @@ textarea { resize: vertical; }
 .summary article {
   min-width: 140px;
   padding: 12px 14px;
-  border: 1px solid #e4ddd0;
+  border: 1px solid #2a3348;
   border-radius: 12px;
   background: #161d2f;
 }
 
 .summary span {
   display: block;
-  color: #5c675f;
+  color: #b8b3c9;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -228,7 +228,7 @@ textarea { resize: vertical; }
 .table-wrap {
   max-width: 100%;
   overflow: auto;
-  border: 1px solid #e4ddd0;
+  border: 1px solid #2a3348;
   border-radius: 12px;
   background: #161d2f;
 }
@@ -238,13 +238,13 @@ table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 14p
 th, td {
   padding: 12px 14px;
   text-align: left;
-  border-bottom: 1px solid #eee6da;
+  border-bottom: 1px solid #2a3348;
   white-space: normal;
   vertical-align: top;
 }
 
 th {
-  color: #5c675f;
+  color: #b8b3c9;
   font-size: 12px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -260,7 +260,7 @@ tr:last-child td { border-bottom: 0; }
   gap: 10px;
 }
 
-.pager span { color: #5c675f; font-weight: 700; }
+.pager span { color: #b8b3c9; font-weight: 700; }
 
 .pager button {
   height: 38px;
@@ -318,7 +318,7 @@ tr:last-child td { border-bottom: 0; }
   justify-content: space-between;
   gap: 12px;
   padding: 16px 18px;
-  border-bottom: 1px solid #eee6da;
+  border-bottom: 1px solid #2a3348;
 }
 
 .modal h2 { margin: 0; font-size: 22px; }
@@ -354,7 +354,7 @@ dl {
   margin: 0;
 }
 
-dt { color: #5c675f; font-weight: 700; }
+dt { color: #b8b3c9; font-weight: 700; }
 dd { margin: 0; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -383,7 +383,7 @@ dd { margin: 0; }
   place-items: center;
   align-content: center;
   gap: 8px;
-  background: rgba(243, 238, 228, 0.78);
+  background: rgba(15, 21, 36, 0.86);
   color: #e84aa8;
 }
 .love-wait span {
