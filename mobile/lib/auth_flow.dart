@@ -199,7 +199,7 @@ class _AuthFlowState extends State<AuthFlow> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
       children: [
-        const Icon(Icons.spa, color: Color(0xFF1F6F54), size: 48),
+        const Icon(Icons.spa, color: Color(0xFFE84AA8), size: 48),
         const SizedBox(height: 28),
         const Text('Get Started', textAlign: TextAlign.center, style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
@@ -216,7 +216,7 @@ class _AuthFlowState extends State<AuthFlow> {
         const SizedBox(height: 12),
         _filled('Continue with Google', Icons.g_mobiledata, const Color(0xFF1A73E8), () => _social('google')),
         const SizedBox(height: 12),
-        _filled('Continue with Apple', Icons.apple, const Color(0xFF1C2B24), () => _social('apple')),
+        _filled('Continue with Apple', Icons.apple, const Color(0xFFF4F1FF), () => _social('apple')),
         const SizedBox(height: 12),
         _outline('Log in with phone number', Icons.phone_outlined, () => setState(() => _step = _Step.phone)),
         TextButton(onPressed: () => setState(() => _step = _Step.trouble), child: const Text('Trouble logging in?')),
@@ -527,8 +527,8 @@ class _AuthFlowState extends State<AuthFlow> {
       label: Text(label),
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(54),
-        foregroundColor: const Color(0xFF1C2B24),
-        side: const BorderSide(color: Color(0xFFD5CEC2), width: 2),
+        foregroundColor: const Color(0xFFF4F1FF),
+        side: const BorderSide(color: Color(0xFF2A3348), width: 2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
     );
@@ -553,7 +553,7 @@ class _AuthFlowState extends State<AuthFlow> {
       onPressed: _busy ? null : onPressed,
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(54),
-        backgroundColor: const Color(0xFF1F6F54),
+        backgroundColor: const Color(0xFFE84AA8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
       child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -565,8 +565,8 @@ class _AuthFlowState extends State<AuthFlow> {
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFFF8E6E1), borderRadius: BorderRadius.circular(12)),
-      child: Text(_error, style: const TextStyle(color: Color(0xFF8C3A32))),
+      decoration: BoxDecoration(color: const Color(0xFF3A1D28), borderRadius: BorderRadius.circular(12)),
+      child: Text(_error, style: const TextStyle(color: Color(0xFFFF6B7A))),
     );
   }
 }

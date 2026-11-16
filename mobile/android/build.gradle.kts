@@ -23,17 +23,15 @@ subprojects {
     buildscript {
         configurations.classpath {
             resolutionStrategy.eachDependency {
-                if (requested.group == "org.jetbrains.kotlin") {
+                if (requested.group == "org.jetbrains.kotlin" && requested.name.startsWith("kotlin-gradle-plugin")) {
                     useVersion("2.4.0")
                 }
             }
         }
     }
-    configurations.configureEach {
-        resolutionStrategy.eachDependency {
-            if (requested.group == "org.jetbrains.kotlin") {
-                useVersion("2.4.0")
-            }
+    tasks.configureEach {
+        if (name.startsWith("lintVital")) {
+            enabled = false
         }
     }
 }

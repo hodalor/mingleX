@@ -17,15 +17,16 @@ class MinglexApp extends StatelessWidget {
       title: 'mingleX',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF3EEE4),
-        colorScheme: const ColorScheme.light(
-          primary: Color(0xFF1F6F54),
-          surface: Color(0xFFF3EEE4),
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF0F1524),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFFE84AA8),
+          secondary: Color(0xFF2EE6C5),
+          surface: Color(0xFF161D2F),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: const Color(0xFFFFFDF8),
+          fillColor: const Color(0xFF161D2F),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),

@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+const CLOUD_RUN_API = "https://minglex-31319355631.europe-west9.run.app";
+const fromEnv = String(import.meta.env.VITE_API_URL ?? "").trim().replace(/\/$/, "");
+export const API_URL = fromEnv || (import.meta.env.PROD ? CLOUD_RUN_API : "http://localhost:4000");
 
 export class ApiError extends Error {
   status: number;

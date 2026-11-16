@@ -376,7 +376,7 @@ class _DeckScreenState extends State<DeckScreen> {
         if (_error.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(_error, style: const TextStyle(color: Color(0xFF8C3A32))),
+            child: Text(_error, style: const TextStyle(color: Color(0xFFFF6B7A))),
           ),
         Expanded(
           child: Stack(
@@ -400,7 +400,7 @@ class _DeckScreenState extends State<DeckScreen> {
           ),
         ),
         NavigationBar(
-          backgroundColor: const Color(0xFFF3EEE4),
+          backgroundColor: const Color(0xFF0F1524),
           selectedIndex: _tab,
           onDestinationSelected: (index) {
             final wasChatting = _openMatch != null;
@@ -504,7 +504,7 @@ class _DeckScreenState extends State<DeckScreen> {
         const SizedBox(height: 8),
         FilledButton(
           onPressed: _busy ? null : _saveSettings,
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54), minimumSize: const Size.fromHeight(52)),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8), minimumSize: const Size.fromHeight(52)),
           child: const Text('Save discovery'),
         ),
         const SizedBox(height: 16),
@@ -513,7 +513,7 @@ class _DeckScreenState extends State<DeckScreen> {
         const SizedBox(height: 8),
         FilledButton(
           onPressed: _busy ? null : _buyPlus,
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54), minimumSize: const Size.fromHeight(52)),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8), minimumSize: const Size.fromHeight(52)),
           child: const Text('Get mingleX Plus'),
         ),
         const SizedBox(height: 28),
@@ -565,7 +565,7 @@ class _DeckScreenState extends State<DeckScreen> {
         const SizedBox(height: 16),
         FilledButton(
           onPressed: _busy ? null : _saveAbout,
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54), minimumSize: const Size.fromHeight(52)),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8), minimumSize: const Size.fromHeight(52)),
           child: const Text('Save about you'),
         ),
       ],
@@ -656,7 +656,7 @@ class _DeckScreenState extends State<DeckScreen> {
   Future<void> _safetySheet(Map<String, dynamic> profile) async {
     final action = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFFFFFDF8),
+      backgroundColor: const Color(0xFF161D2F),
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -670,7 +670,7 @@ class _DeckScreenState extends State<DeckScreen> {
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => Navigator.pop(context, 'block'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54), minimumSize: const Size.fromHeight(48)),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8), minimumSize: const Size.fromHeight(48)),
                 child: const Text('Block'),
               ),
               const SizedBox(height: 8),
@@ -702,7 +702,7 @@ class _DeckScreenState extends State<DeckScreen> {
     ];
     final reason = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFFFFFDF8),
+      backgroundColor: const Color(0xFF161D2F),
       builder: (context) => SafeArea(
         child: ListView(
           shrinkWrap: true,
@@ -767,7 +767,7 @@ class _DeckScreenState extends State<DeckScreen> {
           const SizedBox(height: 16),
           FilledButton(
             onPressed: _busy ? null : () => _pickPhoto(ImageSource.gallery),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54), minimumSize: const Size.fromHeight(52)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8), minimumSize: const Size.fromHeight(52)),
             child: const Text('Choose from library'),
           ),
           const SizedBox(height: 12),
@@ -800,7 +800,7 @@ class _DeckScreenState extends State<DeckScreen> {
                   if (photo != null)
                     photo.video ? _VideoCover(url: photo.url) : Image.network(photo.url, fit: BoxFit.cover)
                   else
-                    const ColoredBox(color: Color(0xFFD9E5DE)),
+                    const ColoredBox(color: Color(0xFF1A2236)),
                   if (photos.length > 1)
                     Positioned(
                       top: 10,
@@ -814,7 +814,7 @@ class _DeckScreenState extends State<DeckScreen> {
                                 height: 4,
                                 margin: const EdgeInsets.symmetric(horizontal: 2),
                                 decoration: BoxDecoration(
-                                  color: index == photoIndex ? const Color(0xFFFFFDF8) : const Color(0x73FFFDF8),
+                                  color: index == photoIndex ? const Color(0xFFF4F1FF) : const Color(0x73FFFDF8),
                                   borderRadius: BorderRadius.circular(99),
                                 ),
                               ),
@@ -866,12 +866,12 @@ class _DeckScreenState extends State<DeckScreen> {
                       children: [
                         Text(
                           '${_titleOf(card)}${card['verified'] == true ? ' · Verified' : ''}${card['videoVerified'] == true ? ' · Video' : ''}',
-                          style: const TextStyle(color: Color(0xFFFFFDF8), fontSize: 28, fontWeight: FontWeight.w800),
+                          style: const TextStyle(color: Color(0xFFF4F1FF), fontSize: 28, fontWeight: FontWeight.w800),
                         ),
                         if (_subtitleOf(card).isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: Text(_subtitleOf(card), style: const TextStyle(color: Color(0xFFFFFDF8))),
+                            child: Text(_subtitleOf(card), style: const TextStyle(color: Color(0xFFF4F1FF))),
                           ),
                         if ((card['bio']?.toString() ?? '').isNotEmpty)
                           Padding(
@@ -880,7 +880,7 @@ class _DeckScreenState extends State<DeckScreen> {
                               card['bio'].toString(),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Color(0xFFFFFDF8)),
+                              style: const TextStyle(color: Color(0xFFF4F1FF)),
                             ),
                           ),
                         if (_factsOf(card).isNotEmpty)
@@ -897,7 +897,7 @@ class _DeckScreenState extends State<DeckScreen> {
                                       borderRadius: BorderRadius.circular(999),
                                       border: Border.all(color: const Color(0x8CFFFDF8)),
                                     ),
-                                    child: Text(fact, style: const TextStyle(color: Color(0xFFFFFDF8), fontSize: 12)),
+                                    child: Text(fact, style: const TextStyle(color: Color(0xFFF4F1FF), fontSize: 12)),
                                   ),
                               ],
                             ),
@@ -1087,7 +1087,7 @@ class _DeckScreenState extends State<DeckScreen> {
                           child: Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(18),
-                              color: const Color(0xFF1C2B24),
+                              color: const Color(0xFF161D2F),
                               image: photo == null ? null : DecorationImage(image: NetworkImage(photo), fit: BoxFit.cover),
                             ),
                             alignment: Alignment.bottomLeft,
@@ -1104,7 +1104,7 @@ class _DeckScreenState extends State<DeckScreen> {
                               ),
                               child: Text(
                                 unread is num && unread > 0 ? '$caption  ${unread.toInt()}' : caption,
-                                style: const TextStyle(color: Color(0xFFFFFDF8), fontWeight: FontWeight.w800),
+                                style: const TextStyle(color: Color(0xFFF4F1FF), fontWeight: FontWeight.w800),
                               ),
                             ),
                           ),
@@ -1133,7 +1133,7 @@ class _DeckScreenState extends State<DeckScreen> {
           child: IconButton(onPressed: () => setState(() => _viewing = null), icon: const Icon(Icons.arrow_back)),
         ),
         if (photos.isEmpty)
-          Container(height: 220, decoration: BoxDecoration(color: const Color(0xFF1C2B24), borderRadius: BorderRadius.circular(18)))
+          Container(height: 220, decoration: BoxDecoration(color: const Color(0xFF161D2F), borderRadius: BorderRadius.circular(18)))
         else
           ...photos.map((url) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -1179,14 +1179,14 @@ class _DeckScreenState extends State<DeckScreen> {
                   _openRequest(person['id'].toString());
                   setState(() => _viewing = null);
                 },
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54)),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8)),
           child: const Text('Message'),
         ),
         if (_viewKind == 'incoming') ...[
           const SizedBox(height: 8),
           FilledButton(
             onPressed: _busy ? null : () => _answer(person['id'].toString(), 'like'),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8)),
             child: const Text('Accept'),
           ),
           TextButton(onPressed: _busy ? null : () => _answer(person['id'].toString(), 'pass'), child: const Text('Pass')),
@@ -1240,7 +1240,7 @@ class _DeckScreenState extends State<DeckScreen> {
         const Text('My profile', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
         if (_photos.isEmpty)
-          Container(height: 180, alignment: Alignment.center, decoration: BoxDecoration(color: const Color(0xFF1C2B24), borderRadius: BorderRadius.circular(18)), child: const Text('Add a photo', style: TextStyle(color: Color(0xFFFFFDF8))))
+          Container(height: 180, alignment: Alignment.center, decoration: BoxDecoration(color: const Color(0xFF161D2F), borderRadius: BorderRadius.circular(18)), child: const Text('Add a photo', style: TextStyle(color: Color(0xFFF4F1FF))))
         else
           ..._photos.map((photo) {
             final url = photo['url']?.toString() ?? '';
@@ -1319,7 +1319,7 @@ class _DeckScreenState extends State<DeckScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        FilledButton(onPressed: _busy ? null : _saveProfile, style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54)), child: const Text('Save profile')),
+        FilledButton(onPressed: _busy ? null : _saveProfile, style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8)), child: const Text('Save profile')),
         const SizedBox(height: 16),
         Text('Phone: ${_phone.isEmpty ? 'None' : _phone}'),
         Text('Email: ${_email.isEmpty ? 'None' : _email}'),
@@ -1328,7 +1328,7 @@ class _DeckScreenState extends State<DeckScreen> {
         OutlinedButton(onPressed: _busy ? null : _sendPhone, child: const Text('Send code')),
         if (_phoneSent) ...[
           TextField(controller: _phoneCode, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '6-digit code')),
-          FilledButton(onPressed: _busy ? null : _verifyPhone, style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54)), child: const Text('Save number')),
+          FilledButton(onPressed: _busy ? null : _verifyPhone, style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8)), child: const Text('Save number')),
         ],
       ],
     );
@@ -1501,15 +1501,15 @@ class _DeckScreenState extends State<DeckScreen> {
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: message['senderId']?.toString() == otherId ? const Color(0xFFE7F2EC) : const Color(0xFF1F6F54),
+                      color: message['senderId']?.toString() == otherId ? const Color(0xFF1A2236) : const Color(0xFFE84AA8),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       message['text']?.toString() ?? '',
                       style: TextStyle(
                         color: message['senderId']?.toString() == otherId
-                            ? const Color(0xFF1C2B24)
-                            : const Color(0xFFFFFDF8),
+                            ? const Color(0xFFF4F1FF)
+                            : const Color(0xFFF4F1FF),
                       ),
                     ),
                   ),
@@ -1547,7 +1547,7 @@ class _DeckScreenState extends State<DeckScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text("It's a match", style: TextStyle(color: Color(0xFF1F6F54), fontWeight: FontWeight.w800)),
+            const Text("It's a match", style: TextStyle(color: Color(0xFFE84AA8), fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             Text('You and ${other['name'] ?? 'them'} liked each other.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
             const SizedBox(height: 16),
@@ -1555,7 +1555,7 @@ class _DeckScreenState extends State<DeckScreen> {
             const SizedBox(height: 12),
             FilledButton(
               onPressed: _busy ? null : _sendHello,
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1F6F54), minimumSize: const Size.fromHeight(48)),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8), minimumSize: const Size.fromHeight(48)),
               child: const Text('Send'),
             ),
             TextButton(
@@ -1573,8 +1573,8 @@ class _DeckScreenState extends State<DeckScreen> {
       onPressed: _busy ? null : onPressed,
       icon: Icon(icon),
       style: IconButton.styleFrom(
-        backgroundColor: filled ? const Color(0xFF1F6F54) : const Color(0xFFFFFDF8),
-        foregroundColor: filled ? const Color(0xFFFFFDF8) : const Color(0xFF1C2B24),
+        backgroundColor: filled ? const Color(0xFFE84AA8) : const Color(0xFFF4F1FF),
+        foregroundColor: filled ? const Color(0xFFF4F1FF) : const Color(0xFFF4F1FF),
         side: filled ? null : const BorderSide(color: Color(0xFF6B7280), width: 2),
         fixedSize: const Size(68, 68),
       ),
@@ -1647,8 +1647,8 @@ class _VideoCoverState extends State<_VideoCover> {
   Widget build(BuildContext context) {
     if (!_controller.value.isInitialized) {
       return const ColoredBox(
-        color: Color(0xFF1C2B24),
-        child: Center(child: Text('Video', style: TextStyle(color: Color(0xFFFFFDF8), fontWeight: FontWeight.w700))),
+        color: Color(0xFFF4F1FF),
+        child: Center(child: Text('Video', style: TextStyle(color: Color(0xFFF4F1FF), fontWeight: FontWeight.w700))),
       );
     }
     return FittedBox(

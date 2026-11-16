@@ -29,9 +29,9 @@ class _LoveWaitState extends State<LoveWait> with SingleTickerProviderStateMixin
           child: const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.favorite, color: Color(0xFF1F6F54), size: 72),
+              Icon(Icons.favorite, color: Color(0xFFE84AA8), size: 72),
               SizedBox(height: 8),
-              Text('One moment', style: TextStyle(color: Color(0xFF1F6F54), fontWeight: FontWeight.w800)),
+              Text('One moment', style: TextStyle(color: Color(0xFFE84AA8), fontWeight: FontWeight.w800)),
             ],
           ),
         ),

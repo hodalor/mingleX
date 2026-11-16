@@ -781,9 +781,5 @@ function Modal(props: { title: string; onClose: () => void; children: ReactNode 
 }
 
 function Mark() {
-  return (
-    <svg className="mark" viewBox="0 0 32 32" aria-hidden="true">
-      <path fill="currentColor" d="M16 28c-7-4.5-12-9.2-12-15a7 7 0 0 1 12-4.8A7 7 0 0 1 28 13c0 5.8-5 10.5-12 15z" />
-    </svg>
-  );
+  return <img className="mark" src="/logo.png" alt="" width={42} height={42} />;
 }

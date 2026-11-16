@@ -6,6 +6,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  VITE_API_URL = "https://minglex-31319355631.europe-west9.run.app"
 
 [[redirects]]
   from = "/*"

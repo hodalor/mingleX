@@ -16,6 +16,7 @@ import { featuresRouter } from "./routes/features.js";
 import { requestsRouter } from "./routes/requests.js";
 import { swipesRouter } from "./routes/swipes.js";
 import { uploadRoot } from "./uploads.js";
+import { parseOrigins } from "./utils/origins.js";
 
 export function createApp() {
   const app = express();
@@ -23,7 +24,7 @@ export function createApp() {
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   app.use(
     cors({
-      origin: [env.webOrigin, env.adminOrigin],
+      origin: parseOrigins(env.webOrigin, env.adminOrigin),
       credentials: true,
     }),
   );

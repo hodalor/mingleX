@@ -4,12 +4,13 @@ import { createApp } from "./app.js";
 import { connectDb } from "./config/db.js";
 import { env } from "./config/env.js";
 import { registerChatSocket } from "./socket/chat.js";
+import { parseOrigins } from "./utils/origins.js";
 
 const app = createApp();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: [env.webOrigin, env.adminOrigin],
+    origin: parseOrigins(env.webOrigin, env.adminOrigin),
     credentials: true,
   },
 });

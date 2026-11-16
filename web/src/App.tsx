@@ -343,12 +343,7 @@ export default function App() {
 function Mark() {
   return (
     <div className="mark" aria-hidden="true">
-      <svg width="42" height="48" viewBox="0 0 42 48">
-        <path
-          fill="#1F6F54"
-          d="M21 46C8 34 2 26 2 16 2 8 8 2 16 2c4 0 6 2 5 5-1 4 2 5 5 5 6 0 14 4 14 14 0 12-10 20-19 20z"
-        />
-      </svg>
+      <img src="/logo.png" alt="" width={72} height={72} />
     </div>
   );
 }
