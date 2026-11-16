@@ -199,7 +199,10 @@ class _AuthFlowState extends State<AuthFlow> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
       children: [
-        const Icon(Icons.spa, color: Color(0xFFE84AA8), size: 48),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Image.asset('assets/app_icon.png', width: 72, height: 72, fit: BoxFit.cover),
+        ),
         const SizedBox(height: 28),
         const Text('Get Started', textAlign: TextAlign.center, style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
@@ -216,7 +219,7 @@ class _AuthFlowState extends State<AuthFlow> {
         const SizedBox(height: 12),
         _filled('Continue with Google', Icons.g_mobiledata, const Color(0xFF1A73E8), () => _social('google')),
         const SizedBox(height: 12),
-        _filled('Continue with Apple', Icons.apple, const Color(0xFFF4F1FF), () => _social('apple')),
+        _filled('Continue with Apple', Icons.apple, const Color(0xFF161D2F), () => _social('apple')),
         const SizedBox(height: 12),
         _outline('Log in with phone number', Icons.phone_outlined, () => setState(() => _step = _Step.phone)),
         TextButton(onPressed: () => setState(() => _step = _Step.trouble), child: const Text('Trouble logging in?')),
