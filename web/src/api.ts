@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+const API_URL = import.meta.env.VITE_API_URL ?? "https://minglex-31319355631.europe-west9.run.app, http://localhost:4000";
 
 export function mediaUrl(url: string | undefined): string | undefined {
   if (!url) return undefined;

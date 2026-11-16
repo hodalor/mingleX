@@ -1,14 +1,10 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 String minglexApiBase() {
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:4000';
-  }
-  return 'http://localhost:4000';
+  return 'https://minglex-31319355631.europe-west9.run.app';
 }
 
 class ApiException implements Exception {
