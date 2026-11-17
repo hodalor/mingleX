@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+import 'country_codes.dart';
 import 'love_wait.dart';
 import 'minglex_api.dart';
 import 'push.dart';
@@ -65,6 +66,7 @@ class _DeckScreenState extends State<DeckScreen> {
   String _email = '';
   String _phone = '';
   bool _phoneSent = false;
+  String _phoneIso = 'GH';
   String? _profileVerificationId;
   bool _profileOpen = false;
   List<Map<String, dynamic>> _photos = [];
@@ -1372,8 +1374,20 @@ class _DeckScreenState extends State<DeckScreen> {
         Text('Phone: ${_phone.isEmpty ? 'None' : _phone}'),
         Text('Email: ${_email.isEmpty ? 'None' : _email}'),
         if (_phone.isNotEmpty) TextButton(onPressed: _busy ? null : _removePhone, child: const Text('Remove phone')),
-        TextField(controller: _phoneNational, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'New number, like +15551234567')),
-        OutlinedButton(onPressed: _busy ? null : _sendPhone, child: const Text('Send code')),
+        DropdownButtonFormField<String>(
+          value: _phoneIso,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'Country code'),
+          items: kCountryCodes
+              .map((country) => DropdownMenuItem(
+                    value: country.iso,
+                    child: Text('${country.name} (${country.dial})', overflow: TextOverflow.ellipsis),
+                  ))
+              .toList(),
+          onChanged: _busy ? null : (value) => setState(() => _phoneIso = value ?? 'GH'),
+        ),
+        TextField(controller: _phoneNational, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number')),
+        OutlinedButton(onPressed: _busy ? null : _sendPhone, child: Text(_busy ? 'Sending…' : 'Send code')),
         if (_phoneSent) ...[
           TextField(controller: _phoneCode, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '6-digit code')),
           FilledButton(onPressed: _busy ? null : _verifyPhone, style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8)), child: const Text('Save number')),
@@ -1451,7 +1465,9 @@ class _DeckScreenState extends State<DeckScreen> {
       showNote(context, 'Phone verification is not ready on this device.');
       return;
     }
-    final phone = _phoneNational.text.trim();
+    final digits = _phoneNational.text.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^0+'), '');
+    final dial = kCountryCodes.firstWhere((country) => country.iso == _phoneIso, orElse: () => kCountryCodes.firstWhere((c) => c.iso == 'GH')).dial;
+    final phone = '$dial$digits';
     setState(() => _busy = true);
     try {
       await FirebaseAuth.instance.verifyPhoneNumber(
