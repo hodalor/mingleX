@@ -19,20 +19,22 @@ Create a profile with photos or video, set who you want to meet, and swipe throu
 Safety tools include block, report, and photo or video verification checks. Optional paid features may unlock extras through in-app purchase.
 
 You can delete your account anytime in Settings → Delete my account. Privacy policy, terms, and deletion help:
-- Privacy: https://YOUR-WEB.netlify.app/privacy
-- Terms: https://YOUR-WEB.netlify.app/tandc
-- Delete account help: https://YOUR-WEB.netlify.app/delete
-
-Replace YOUR-WEB.netlify.app with your live Netlify web URL.
+- Privacy: https://minglexx.netlify.app/privacy
+- Terms: https://minglexx.netlify.app/tandc
+- Delete account help: https://minglexx.netlify.app/delete
+- CSAE / child safety standards: https://minglexx.netlify.app/childabuse
 
 ## Data safety / privacy policy URL
-https://YOUR-WEB.netlify.app/privacy
+https://minglexx.netlify.app/privacy
 
 ## Account deletion URL (Data safety + Store listing)
-https://YOUR-WEB.netlify.app/delete
+https://minglexx.netlify.app/delete
 
 ## Terms of service URL
-https://YOUR-WEB.netlify.app/tandc
+https://minglexx.netlify.app/tandc
+
+## CSAE standards URL (Play Console — child safety)
+https://minglexx.netlify.app/childabuse
 
 ## App access (if reviewers need a demo login)
 Provide a test email/password account that is 18+, not banned, and has at least one photo. Note any SMS/OTP steps.

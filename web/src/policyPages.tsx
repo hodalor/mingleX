@@ -71,7 +71,9 @@ const terms: PolicyPage = {
       <h2>Acceptable use</h2>
       <p>
         Do not harass, threaten, scam, impersonate others, spam, or share illegal or non-consensual sexual content.
-        Sexual content involving minors is strictly forbidden. We may suspend or ban accounts that break these rules.
+        Sexual content involving minors is strictly forbidden. Our publicly published standards against child
+        sexual abuse and exploitation are at <a href="/childabuse">/childabuse</a>. We may suspend or ban
+        accounts that break these rules.
       </p>
       <h2>Paid features</h2>
       <p>
@@ -124,13 +126,69 @@ const deleteGuide: PolicyPage = {
         ask us to delete it. We will verify ownership before removing access.
       </p>
       <p>
-        Related: <a href="/privacy">Privacy Policy</a> · <a href="/tandc">Terms and Conditions</a>
+        Related: <a href="/privacy">Privacy Policy</a> · <a href="/tandc">Terms and Conditions</a> ·{" "}
+        <a href="/childabuse">Child safety standards</a>
       </p>
     </>
   ),
 };
 
-const pages = [privacy, terms, deleteGuide];
+const childAbuseStandards: PolicyPage = {
+  path: "/childabuse",
+  title: "Standards against child sexual abuse and exploitation (CSAE)",
+  body: (
+    <>
+      <p>Last updated: 17 November 2026</p>
+      <p>
+        mingleX publishes these standards to state how we prohibit and respond to child sexual abuse and
+        exploitation (CSAE). This page is the externally available CSAE standards link for store and safety
+        reviewers.
+      </p>
+      <h2>Age restriction</h2>
+      <p>
+        mingleX is for adults <strong>18 years and older</strong> only. Accounts for anyone under 18 are not
+        allowed. We may remove underage accounts, related content, and access as soon as we become aware of them.
+      </p>
+      <h2>Zero tolerance for CSAE</h2>
+      <p>We prohibit, without exception:</p>
+      <ul>
+        <li>Sexual content, exploitation, grooming, or trafficking involving anyone under 18</li>
+        <li>Child sexual abuse material (CSAM), including real, generated, or AI-created depictions</li>
+        <li>Soliciting, sharing, or requesting sexual images or contact with minors</li>
+        <li>Using mingleX to find, contact, or harm minors</li>
+      </ul>
+      <h2>Prevention and enforcement</h2>
+      <p>
+        We require accurate age information at signup, moderate reports of harmful content, and may suspend or
+        permanently ban accounts that violate these standards or our{" "}
+        <a href="/tandc">Terms and Conditions</a>. We may preserve limited records needed for safety, legal, and
+        audit purposes.
+      </p>
+      <h2>Reporting</h2>
+      <p>
+        If you see content or behavior that may involve a minor or CSAE, report it in the app (report / block
+        tools) and email{" "}
+        <a href="mailto:princehodalor@gmail.com">princehodalor@gmail.com</a> with “CSAE report” in the subject
+        line. Include links, usernames, screenshots, and any other detail that helps us act quickly.
+      </p>
+      <h2>Law enforcement and legal compliance</h2>
+      <p>
+        We comply with applicable laws on child protection. Where required, we cooperate with lawful requests from
+        authorities and may report apparent CSAM or CSAE to the appropriate channels.
+      </p>
+      <h2>Contact</h2>
+      <p>
+        Safety and CSAE questions: <a href="mailto:princehodalor@gmail.com">princehodalor@gmail.com</a>
+      </p>
+      <p>
+        Related: <a href="/privacy">Privacy Policy</a> · <a href="/tandc">Terms and Conditions</a> ·{" "}
+        <a href="/delete">Delete account</a>
+      </p>
+    </>
+  ),
+};
+
+const pages = [privacy, terms, deleteGuide, childAbuseStandards];
 
 export function matchPolicyPath(pathname: string): PolicyPage | null {
   const clean = pathname.replace(/\/+$/, "") || "/";
