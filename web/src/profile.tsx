@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, mediaUrl, uploadFile, uploadPhoto } from "./api";
+import { COUNTRY_CODES } from "./countryCodes";
 import { confirmFirebaseSms, firebaseError, sendFirebaseSms } from "./firebase";
 import { LoveWait } from "./love";
 import { showToast } from "./toast";
@@ -58,7 +59,6 @@ const factLabels: Record<string, Record<string, string>> = {
   gender: { woman: "Woman", man: "Man", nonbinary: "Nonbinary" },
 };
 
-const prefixes = ["+1", "+44", "+234", "+233", "+254", "+27", "+91", "+61", "+49", "+33", "+55"];
 
 function blank(account: Account) {
   return {
@@ -83,7 +83,7 @@ export function MyProfile(props: { token: string }) {
   const [account, setAccount] = useState<ReturnType<typeof blank> | null>(null);
   const [height, setHeight] = useState("");
   const [busy, setBusy] = useState(false);
-  const [prefix, setPrefix] = useState("+1");
+  const [countryIso, setCountryIso] = useState("GH");
   const [national, setNational] = useState("");
   const [phoneCode, setPhoneCode] = useState("");
   const [phoneSent, setPhoneSent] = useState(false);
@@ -218,7 +218,8 @@ export function MyProfile(props: { token: string }) {
     const digits = national.replace(/\D/g, "").replace(/^0+/, "");
     setBusy(true);
     try {
-      await sendFirebaseSms(`${prefix}${digits}`);
+      const dial = COUNTRY_CODES.find((country) => country.iso === countryIso)?.dial ?? "+233";
+      await sendFirebaseSms(`${dial}${digits}`);
       setPhoneSent(true);
       showToast("Code sent to your number.");
     } catch (caught) {
@@ -400,8 +401,10 @@ export function MyProfile(props: { token: string }) {
           <button className="auth-btn outline" type="button" disabled={busy} onClick={() => void removePhone()}>Remove phone</button>
         )}
         <div className="phone-row">
-          <select aria-label="Country code" value={prefix} onChange={(event) => setPrefix(event.target.value)}>
-            {prefixes.map((item) => <option key={item} value={item}>{item}</option>)}
+          <select aria-label="Country code" value={countryIso} onChange={(event) => setCountryIso(event.target.value)}>
+            {COUNTRY_CODES.map((country) => (
+              <option key={country.iso} value={country.iso}>{country.name} ({country.dial})</option>
+            ))}
           </select>
           <input inputMode="tel" placeholder="New number" value={national} onChange={(event) => setNational(event.target.value)} />
         </div>

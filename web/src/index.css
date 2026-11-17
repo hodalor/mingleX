@@ -205,7 +205,8 @@ input, select, textarea {
   cursor: pointer;
 }
 
-.phone-row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; }
+.phone-row { display: grid; grid-template-columns: minmax(140px, 42%) 1fr; gap: 10px; }
+.phone-row select { max-width: 100%; }
 
 .choices { display: flex; gap: 8px; flex-wrap: wrap; }
 

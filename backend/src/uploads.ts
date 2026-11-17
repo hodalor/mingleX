@@ -60,16 +60,15 @@ export async function publishPhoto(file: Express.Multer.File): Promise<string> {
     }
   }
   await fs.promises.writeFile(path.join(uploadRoot, name), file.buffer);
-  return `/uploads/${name}`;
+  return `/media/${name}`;
 }
 
 export function removeStoredPhoto(url: string): void {
-  if (url.startsWith("/uploads/")) {
+  if (url.startsWith("/uploads/") || url.startsWith("/media/")) {
     const filename = path.basename(url);
     const fullPath = path.resolve(uploadRoot, filename);
     if (!fullPath.startsWith(uploadRoot)) return;
     fs.rmSync(fullPath, { force: true });
-    return;
   }
   void deletePublicPhoto(url).catch(() => {
     console.error("Stored photo could not be removed");

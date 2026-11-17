@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, type AuthResult, type Me, type ProviderConfig } from "./api";
+import { COUNTRY_CODES } from "./countryCodes";
 import { confirmFirebaseSms, firebaseError, sendFirebaseSms } from "./firebase";
 import { DeckApp } from "./deck";
 import { LoveWait } from "./love";
@@ -21,21 +22,6 @@ type Screen =
 type Session = { token: string; user: Me };
 
 const SESSION_KEY = "minglex.session";
-
-const countries = [
-  ["US", "+1"],
-  ["CA", "+1"],
-  ["UK", "+44"],
-  ["NG", "+234"],
-  ["GH", "+233"],
-  ["KE", "+254"],
-  ["ZA", "+27"],
-  ["IN", "+91"],
-  ["AU", "+61"],
-  ["DE", "+49"],
-  ["FR", "+33"],
-  ["BR", "+55"],
-] as const;
 
 function loadSession(): Session | null {
   const raw = sessionStorage.getItem(SESSION_KEY);
@@ -416,13 +402,18 @@ function EmailAuth(props: {
   const [emailProof, setEmailProof] = useState("");
   const [phoneProof, setPhoneProof] = useState("");
   const [localError, setLocalError] = useState("");
+  const [localBusy, setLocalBusy] = useState(false);
+  const [countryIso, setCountryIso] = useState("GH");
+  const [national, setNational] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [gender, setGender] = useState<Gender>("woman");
+  const waiting = props.busy || localBusy;
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (waiting) return;
     if (mode === "login") {
       props.onSubmit({ email, password }, mode);
       return;
@@ -448,20 +439,28 @@ function EmailAuth(props: {
 
   async function sendCodes() {
     setLocalError("");
+    setLocalBusy(true);
+    const digits = national.replace(/\D/g, "").replace(/^0+/, "");
+    const dial = COUNTRY_CODES.find((country) => country.iso === countryIso)?.dial ?? "+233";
+    const fullPhone = digits ? `${dial}${digits}` : "";
+    setPhone(fullPhone);
     try {
       await api("/api/auth/signup/send", {
         method: "POST",
-        body: JSON.stringify({ email, ...(phone ? { phone } : {}) }),
+        body: JSON.stringify({ email, ...(fullPhone ? { phone: fullPhone } : {}) }),
       });
-      if (phone) await sendFirebaseSms(phone);
+      if (fullPhone) await sendFirebaseSms(fullPhone);
       setStage("code");
     } catch (caught) {
       setLocalError(caught instanceof ApiError ? caught.message : firebaseError(caught));
+    } finally {
+      setLocalBusy(false);
     }
   }
 
   async function confirmCodes() {
     setLocalError("");
+    setLocalBusy(true);
     try {
       let firebaseIdToken = "";
       if (phone) firebaseIdToken = await confirmFirebaseSms(phoneCode);
@@ -474,45 +473,64 @@ function EmailAuth(props: {
       setStage("password");
     } catch (caught) {
       setLocalError(caught instanceof ApiError ? caught.message : firebaseError(caught));
+    } finally {
+      setLocalBusy(false);
     }
   }
 
   return (
     <form className="stack" onSubmit={submit}>
-      <button className="back" type="button" onClick={props.onBack} aria-label="Back">‹</button>
+      {localBusy && <LoveWait />}
+      <button className="back" type="button" onClick={props.onBack} aria-label="Back" disabled={waiting}>‹</button>
       <h1 className="form-title">{mode === "login" ? "Log in with email" : "Create account"}</h1>
       {(localError || props.error) && <p className="error">{localError || props.error}</p>}
       {mode === "login" && (
         <>
-          <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-          <label>Password<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+          <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} disabled={waiting} /></label>
+          <label>Password<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} disabled={waiting} /></label>
         </>
       )}
       {mode === "register" && stage === "contact" && (
         <>
-          <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-          <label>Phone, if you want it on this account<input inputMode="tel" placeholder="+15551234567" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
+          <label>Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} disabled={waiting} /></label>
+          <p className="preview-note">Phone is optional. Leave it blank to verify with email only.</p>
+          <div className="phone-row">
+            <select aria-label="Country code" value={countryIso} disabled={waiting} onChange={(event) => setCountryIso(event.target.value)}>
+              {COUNTRY_CODES.map((country) => (
+                <option key={country.iso} value={country.iso}>{country.name} ({country.dial})</option>
+              ))}
+            </select>
+            <input inputMode="tel" placeholder="Phone number" value={national} disabled={waiting} onChange={(event) => setNational(event.target.value)} />
+          </div>
           <p className="preview-note">We send a 6-digit code before you can choose a password.</p>
         </>
       )}
       {mode === "register" && stage === "code" && (
         <>
-          <label>Email code<input inputMode="numeric" required minLength={6} maxLength={6} value={emailCode} onChange={(event) => setEmailCode(event.target.value)} /></label>
-          {phone && <label>Phone code<input inputMode="numeric" required minLength={6} maxLength={6} value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} /></label>}
+          <label>Email code<input inputMode="numeric" required minLength={6} maxLength={6} value={emailCode} disabled={waiting} onChange={(event) => setEmailCode(event.target.value)} /></label>
+          {phone && <label>Phone code<input inputMode="numeric" required minLength={6} maxLength={6} value={phoneCode} disabled={waiting} onChange={(event) => setPhoneCode(event.target.value)} /></label>}
           <p className="preview-note">The code is in your inbox{phone ? " and on your phone" : ""}. It is not shown here.</p>
         </>
       )}
       {mode === "register" && stage === "password" && (
         <>
-          <label>Password<input type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-          <label>First name<input required maxLength={40} value={name} onChange={(event) => setName(event.target.value)} /></label>
-          <label>Birthday<input type="date" required value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /></label>
+          <label>Password<input type="password" autoComplete="new-password" minLength={8} required value={password} disabled={waiting} onChange={(event) => setPassword(event.target.value)} /></label>
+          <label>First name<input required maxLength={40} value={name} disabled={waiting} onChange={(event) => setName(event.target.value)} /></label>
+          <label>Birthday<input type="date" required value={birthDate} disabled={waiting} onChange={(event) => setBirthDate(event.target.value)} /></label>
           <GenderPicker value={gender} onChange={setGender} />
           <p className="preview-note">mingleX is for adults 18 and older.</p>
         </>
       )}
-      <button className="submit" type="submit" disabled={props.busy}>
-        {mode === "login" ? "Log in" : stage === "password" ? "Agree and continue" : "Continue"}
+      <button className="submit" type="submit" disabled={waiting}>
+        {waiting
+          ? "Please wait…"
+          : mode === "login"
+            ? "Log in"
+            : stage === "password"
+              ? "Agree and continue"
+              : stage === "code"
+                ? "Verify codes"
+                : "Continue"}
       </button>
       {mode === "login" && (
         <button className="switch" type="button" onClick={props.onForgot}>Forgot password?</button>
@@ -566,29 +584,31 @@ function PhoneAuth(props: {
   onBack: () => void;
   onSubmit: (phone: string) => void;
 }) {
-  const [code, setCode] = useState("+1");
+  const [countryIso, setCountryIso] = useState("GH");
   const [national, setNational] = useState("");
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (props.busy) return;
     const digits = national.replace(/\D/g, "").replace(/^0+/, "");
-    props.onSubmit(`${code}${digits}`);
+    const dial = COUNTRY_CODES.find((country) => country.iso === countryIso)?.dial ?? "+233";
+    props.onSubmit(`${dial}${digits}`);
   }
 
   return (
     <form className="stack" onSubmit={submit}>
-      <button className="back" type="button" onClick={props.onBack} aria-label="Back">‹</button>
+      <button className="back" type="button" onClick={props.onBack} aria-label="Back" disabled={props.busy}>‹</button>
       <h1 className="form-title">My number is</h1>
       {props.error && <p className="error">{props.error}</p>}
       <div className="phone-row">
-        <select aria-label="Country code" value={code} onChange={(event) => setCode(event.target.value)}>
-          {countries.map(([label, prefix]) => (
-            <option key={`${label}${prefix}`} value={prefix}>{label} {prefix}</option>
+        <select aria-label="Country code" value={countryIso} disabled={props.busy} onChange={(event) => setCountryIso(event.target.value)}>
+          {COUNTRY_CODES.map((country) => (
+            <option key={country.iso} value={country.iso}>{country.name} ({country.dial})</option>
           ))}
         </select>
-        <input inputMode="tel" autoComplete="tel-national" required placeholder="Phone number" value={national} onChange={(event) => setNational(event.target.value)} />
+        <input inputMode="tel" autoComplete="tel-national" required placeholder="Phone number" value={national} disabled={props.busy} onChange={(event) => setNational(event.target.value)} />
       </div>
-      <button className="submit" type="submit" disabled={props.busy}>Continue</button>
+      <button className="submit" type="submit" disabled={props.busy}>{props.busy ? "Sending code…" : "Continue"}</button>
     </form>
   );
 }

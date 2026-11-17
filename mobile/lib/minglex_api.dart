@@ -85,6 +85,9 @@ class MinglexApi {
   }
 
   String mediaUrl(String url) {
+    final gcs = RegExp(r'^https://storage\.googleapis\.com/[^/]+/([^?#]+)').firstMatch(url);
+    if (gcs != null) return '$baseUrl/media/${Uri.decodeComponent(gcs.group(1)!)}';
+    if (url.startsWith('/uploads/')) return '$baseUrl/media/${url.substring('/uploads/'.length)}';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
     return '$baseUrl$url';
   }

@@ -15,6 +15,8 @@ import { billingRouter } from "./routes/billing.js";
 import { featuresRouter } from "./routes/features.js";
 import { requestsRouter } from "./routes/requests.js";
 import { swipesRouter } from "./routes/swipes.js";
+import { mediaRouter } from "./routes/media.js";
+import { gcsConfigured } from "./services/storage.js";
 import { uploadRoot } from "./uploads.js";
 import { parseOrigins } from "./utils/origins.js";
 
@@ -39,12 +41,13 @@ export function createApp() {
   }
 
   app.use("/uploads", express.static(uploadRoot));
+  app.use("/media", mediaRouter);
 
   app.get("/", (_req, res) => {
     res.json({ name: "mingleX API", status: "ok" });
   });
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, service: "minglex-api" });
+    res.json({ ok: true, service: "minglex-api", gcs: gcsConfigured() });
   });
 
   app.use("/api/auth", authRouter);

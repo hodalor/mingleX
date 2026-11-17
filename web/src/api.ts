@@ -11,6 +11,10 @@ export const API_URL =
 
 export function mediaUrl(url: string | undefined): string | undefined {
   if (!url) return undefined;
+  // Private GCS buckets 403 in the browser — always load through the API media proxy.
+  const gcs = url.match(/^https:\/\/storage\.googleapis\.com\/[^/]+\/([^/?#]+)/i);
+  if (gcs?.[1]) return `${API_URL}/media/${decodeURIComponent(gcs[1])}`;
+  if (url.startsWith("/uploads/")) return `${API_URL}/media/${url.slice("/uploads/".length)}`;
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
   return `${API_URL}${url}`;
 }

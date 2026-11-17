@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'country_codes.dart';
 import 'deck_screen.dart';
 import 'love_wait.dart';
 import 'minglex_api.dart';
@@ -35,16 +36,21 @@ class _AuthFlowState extends State<AuthFlow> {
   final _newPassword = TextEditingController();
   String _gender = 'woman';
   bool _resetSent = false;
-  String _countryCode = '+1';
+  String _countryIso = 'GH';
+  String _signupIso = 'GH';
   String _emailStage = 'contact';
   String _emailProof = '';
   String _phoneProof = '';
   String _proof = '';
   String? _signupVerificationId;
   PhoneAuthCredential? _signupCredential;
-  final _signupPhone = TextEditingController();
+  final _signupNational = TextEditingController();
   final _emailCode = TextEditingController();
   final _phoneCode = TextEditingController();
+  String _signupPhoneValue = '';
+
+  String _dialFor(String iso) =>
+      kCountryCodes.firstWhere((country) => country.iso == iso, orElse: () => kCountryCodes.firstWhere((c) => c.iso == 'GH')).dial;
 
   @override
   void dispose() {
@@ -55,7 +61,7 @@ class _AuthFlowState extends State<AuthFlow> {
     _national.dispose();
     _code.dispose();
     _newPassword.dispose();
-    _signupPhone.dispose();
+    _signupNational.dispose();
     _emailCode.dispose();
     _phoneCode.dispose();
     super.dispose();
@@ -240,15 +246,45 @@ class _AuthFlowState extends State<AuthFlow> {
         ],
         if (_creating && _emailStage == 'contact') ...[
           const SizedBox(height: 12),
-          TextField(controller: _signupPhone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone, optional, like +15551234567')),
+          const Text('Phone is optional. Leave it blank to verify with email only.'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<String>(
+                  value: _signupIso,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Country'),
+                  items: kCountryCodes
+                      .map((country) => DropdownMenuItem(
+                            value: country.iso,
+                            child: Text('${country.name} (${country.dial})', overflow: TextOverflow.ellipsis),
+                          ))
+                      .toList(),
+                  onChanged: _busy ? null : (value) => setState(() => _signupIso = value ?? 'GH'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _signupNational,
+                  enabled: !_busy,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: 'Phone'),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           const Text('We send a 6-digit code before you can choose a password.'),
         ],
         if (_creating && _emailStage == 'code') ...[
-          TextField(controller: _emailCode, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Email code')),
-          if (_signupPhone.text.trim().isNotEmpty) ...[
+          TextField(controller: _emailCode, enabled: !_busy, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Email code')),
+          if (_signupPhoneValue.isNotEmpty) ...[
             const SizedBox(height: 12),
-            TextField(controller: _phoneCode, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Phone code')),
+            TextField(controller: _phoneCode, enabled: !_busy, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Phone code')),
           ],
           const Text('The code is in your inbox, and on your phone if you added a number. It is not shown here.'),
         ],
@@ -263,14 +299,25 @@ class _AuthFlowState extends State<AuthFlow> {
           const Text('mingleX is for adults 18 and older.'),
         ],
         const SizedBox(height: 16),
-        _submit(_creating ? (_emailStage == 'password' ? 'Agree and continue' : 'Continue') : 'Log in', () {
+        _submit(
+          _busy
+              ? 'Please wait…'
+              : _creating
+                  ? (_emailStage == 'password'
+                      ? 'Agree and continue'
+                      : _emailStage == 'code'
+                          ? 'Verify codes'
+                          : 'Continue')
+                  : 'Log in',
+          () {
           _run(() async {
             if (!_creating) {
               _accept(await _api.postJson('/api/auth/login', {'email': _email.text.trim(), 'password': _password.text}));
               return;
             }
             if (_emailStage == 'contact') {
-              final phone = _signupPhone.text.trim();
+              final digits = _signupNational.text.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^0+'), '');
+              final phone = digits.isEmpty ? '' : '${_dialFor(_signupIso)}$digits';
               await _api.postJson('/api/auth/signup/send', {
                 'email': _email.text.trim(),
                 if (phone.isNotEmpty) 'phone': phone,
@@ -280,11 +327,14 @@ class _AuthFlowState extends State<AuthFlow> {
                 _signupVerificationId = null;
                 await _firebasePhone(phone, signup: true);
               }
-              setState(() => _emailStage = 'code');
+              setState(() {
+                _signupPhoneValue = phone;
+                _emailStage = 'code';
+              });
               return;
             }
             if (_emailStage == 'code') {
-              final phone = _signupPhone.text.trim();
+              final phone = _signupPhoneValue;
               final idToken = phone.isEmpty ? null : await _signupPhoneToken(_phoneCode.text.trim());
               final result = await _api.postJson('/api/auth/signup/confirm', {
                 'email': _email.text.trim(),
@@ -299,7 +349,7 @@ class _AuthFlowState extends State<AuthFlow> {
               });
               return;
             }
-            final phone = _signupPhone.text.trim();
+            final phone = _signupPhoneValue;
             _accept(await _api.postJson('/api/auth/register', {
               'email': _email.text.trim(),
               'emailProof': _emailProof,
@@ -333,23 +383,29 @@ class _AuthFlowState extends State<AuthFlow> {
       title: 'My number is',
       onBack: () => setState(() => _step = _Step.start),
       children: [
-        Row(
-          children: [
-            DropdownButton<String>(
-              value: _countryCode,
-              items: const ['+1', '+44', '+234', '+233', '+254', '+27', '+91', '+61']
-                  .map((code) => DropdownMenuItem(value: code, child: Text(code)))
-                  .toList(),
-              onChanged: (value) => setState(() => _countryCode = value ?? '+1'),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: TextField(controller: _national, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number'))),
-          ],
+        DropdownButtonFormField<String>(
+          value: _countryIso,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'Country code'),
+          items: kCountryCodes
+              .map((country) => DropdownMenuItem(
+                    value: country.iso,
+                    child: Text('${country.name} (${country.dial})', overflow: TextOverflow.ellipsis),
+                  ))
+              .toList(),
+          onChanged: _busy ? null : (value) => setState(() => _countryIso = value ?? 'GH'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _national,
+          enabled: !_busy,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(labelText: 'Phone number'),
         ),
         const SizedBox(height: 16),
-        _submit('Continue', () {
+        _submit(_busy ? 'Sending code…' : 'Continue', () {
           final digits = _national.text.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^0+'), '');
-          final phone = '$_countryCode$digits';
+          final phone = '${_dialFor(_countryIso)}$digits';
           _run(() async {
             await _firebasePhone(phone);
           });

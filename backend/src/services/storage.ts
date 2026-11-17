@@ -29,6 +29,17 @@ function client(): Storage {
   return storage;
 }
 
+/** Object name from a stored media path or absolute GCS URL. */
+export function mediaObjectName(url: string): string | null {
+  if (url.startsWith("/media/") || url.startsWith("/uploads/")) {
+    const name = url.split("/").pop() ?? "";
+    return name && !name.includes("..") ? name : null;
+  }
+  const match = url.match(/^https:\/\/storage\.googleapis\.com\/[^/]+\/([^/?#]+)/i);
+  if (match?.[1]) return decodeURIComponent(match[1]);
+  return null;
+}
+
 export async function uploadPublicPhoto(name: string, buffer: Buffer, contentType: string): Promise<string> {
   const file = client().bucket(env.gcsBucket).file(name);
   await file.save(buffer, {
@@ -39,16 +50,23 @@ export async function uploadPublicPhoto(name: string, buffer: Buffer, contentTyp
   try {
     await file.makePublic();
   } catch {
-    // A bucket with uniform access uses its own public-read policy instead.
+    // Uniform bucket access often blocks object ACLs. Clients load via /media proxy instead.
   }
-  return `https://storage.googleapis.com/${env.gcsBucket}/${name}`;
+  // Always return an API-relative path so private buckets still display through Cloud Run.
+  return `/media/${name}`;
+}
+
+export async function openGcsReadStream(name: string) {
+  if (!gcsConfigured()) return null;
+  const file = client().bucket(env.gcsBucket).file(name);
+  const [exists] = await file.exists();
+  if (!exists) return null;
+  return file.createReadStream();
 }
 
 export async function deletePublicPhoto(url: string): Promise<void> {
   if (!gcsConfigured()) return;
-  const prefix = `https://storage.googleapis.com/${env.gcsBucket}/`;
-  if (!url.startsWith(prefix)) return;
-  const name = decodeURIComponent(url.slice(prefix.length));
-  if (!name || name.includes("/") || name.includes("..")) return;
+  const name = mediaObjectName(url);
+  if (!name) return;
   await client().bucket(env.gcsBucket).file(name).delete({ ignoreNotFound: true });
 }
