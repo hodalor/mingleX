@@ -22,7 +22,7 @@ export async function requestPasswordReset(email: string): Promise<{ sent: true 
   }
 
   const user = await User.findOne({ email: normalized });
-  if (!user || user.isBanned) {
+  if (!user || user.isBanned || user.deletedAt) {
     return { sent: true };
   }
 
@@ -64,7 +64,7 @@ export async function resetPassword(email: string, code: string, password: strin
   }
 
   const user = await User.findOne({ email: normalized }).select("+passwordHash");
-  if (!user || user.isBanned) {
+  if (!user || user.isBanned || user.deletedAt) {
     await ResetCode.deleteMany({ email: normalized });
     throw new HttpError(401, "That code is incorrect or expired");
   }

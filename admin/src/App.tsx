@@ -45,6 +45,8 @@ type Member = {
   photos: { url: string; isPrimary: boolean }[];
   isBanned: boolean;
   banReason: string;
+  deletedAt: string | null;
+  deleteReason: string;
   createdAt: string | null;
   lastActiveAt: string | null;
   discoveryRadiusKm: number;
@@ -86,6 +88,7 @@ type Stats = {
   matches: number;
   openReports: number;
   bannedUsers: number;
+  deletedUsers: number;
   blocks: number;
 };
 
@@ -223,6 +226,7 @@ function Console(props: { session: Session; onSignOut: () => void }) {
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [banned, setBanned] = useState("all");
+  const [deletedFilter, setDeletedFilter] = useState("active");
   const [status, setStatus] = useState("open");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -251,6 +255,7 @@ function Console(props: { session: Session; onSignOut: () => void }) {
         const params = new URLSearchParams();
         if (appliedQuery) params.set("q", appliedQuery);
         if (banned !== "all") params.set("banned", banned === "banned" ? "true" : "false");
+        params.set("deleted", deletedFilter === "deleted" ? "true" : "false");
         params.set("page", String(listPage));
         const data = await api<{ total: number; pageSize?: number; users: Member[] }>(`/api/admin/users?${params}`, {}, token);
         if (!active) return;
@@ -290,7 +295,7 @@ function Console(props: { session: Session; onSignOut: () => void }) {
     return () => {
       active = false;
     };
-  }, [page, appliedQuery, banned, status, tick, listPage, props.session.token]);
+  }, [page, appliedQuery, banned, deletedFilter, status, tick, listPage, props.session.token]);
 
   function refresh() {
     setTick((value) => value + 1);
@@ -356,6 +361,7 @@ function Console(props: { session: Session; onSignOut: () => void }) {
                 ["Matches", stats.matches],
                 ["Open reports", stats.openReports],
                 ["Banned", stats.bannedUsers],
+                ["Deleted", stats.deletedUsers],
               ]} />
               <Table
                 columns={["When", "Reason", "Reported", "Status", ""]}
@@ -374,21 +380,29 @@ function Console(props: { session: Session; onSignOut: () => void }) {
             <>
               <form className="filters" onSubmit={applyMembers}>
                 <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name or email" />
+                <select value={deletedFilter} onChange={(event) => { setListPage(1); setDeletedFilter(event.target.value); }}>
+                  <option value="active">Live accounts</option>
+                  <option value="deleted">Deleted accounts</option>
+                </select>
                 <select value={banned} onChange={(event) => { setListPage(1); setBanned(event.target.value); }}>
-                  <option value="all">All members</option>
-                  <option value="active">Active</option>
+                  <option value="all">All statuses</option>
+                  <option value="active">Not banned</option>
                   <option value="banned">Banned</option>
                 </select>
                 <button className="primary" type="submit">Apply</button>
               </form>
-              <Summary items={[["Matching", memberTotal], ["Banned in the app", stats?.bannedUsers ?? 0]]} />
+              <Summary items={[
+                ["In this view", memberTotal],
+                ["Banned", stats?.bannedUsers ?? 0],
+                ["Deleted kept for staff", stats?.deletedUsers ?? 0],
+              ]} />
               <Table
                 columns={["Name", "Email", "Age", "Status", "Joined", ""]}
                 rows={members.map((member) => [
                   member.name || "—",
                   member.email ?? "—",
                   member.age ?? "—",
-                  member.isBanned ? "Banned" : "Active",
+                  member.deletedAt ? "Deleted" : member.isBanned ? "Banned" : "Active",
                   when(member.createdAt),
                   <TextButton key={member.id} onClick={() => setModal({ kind: "member", member })}>Open</TextButton>,
                 ])}
@@ -608,25 +622,33 @@ function MemberDetail(props: { token: string; member: Member; onChanged: (member
         <dt>Distance</dt><dd>{props.member.discoveryRadiusKm} km</dd>
         <dt>Ages</dt><dd>{props.member.discoveryMinAge}–{props.member.discoveryMaxAge}</dd>
         <dt>Last active</dt><dd>{when(props.member.lastActiveAt)}</dd>
+        <dt>Deleted</dt><dd>{props.member.deletedAt ? when(props.member.deletedAt) : "No"}</dd>
+        <dt>Delete reason</dt><dd>{props.member.deleteReason || "—"}</dd>
       </dl>
       {error && <p className="error">{error}</p>}
-      <label>
-        Ban reason
-        <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} />
-      </label>
-      {props.member.isBanned ? (
-        <button className="primary" type="button" disabled={busy} onClick={() => void ban(false)}>Unban</button>
+      {props.member.deletedAt ? (
+        <p className="muted">This account deleted itself. It stays here for staff audit only and cannot sign in or appear in discovery.</p>
       ) : (
-        <button className="danger" type="button" disabled={busy} onClick={() => void ban(true)}>Ban from the apps</button>
+        <>
+          <label>
+            Ban reason
+            <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} />
+          </label>
+          {props.member.isBanned ? (
+            <button className="primary" type="button" disabled={busy} onClick={() => void ban(false)}>Unban</button>
+          ) : (
+            <button className="danger" type="button" disabled={busy} onClick={() => void ban(true)}>Ban from the apps</button>
+          )}
+          <p className="home-copy">Photo check: {props.member.photoCheck ?? "none"}. Video check: {props.member.videoCheck ?? "none"}.</p>
+          <button className="primary" type="button" disabled={busy} onClick={() => void review("photo", "verified")}>Approve photo</button>
+          <button type="button" disabled={busy} onClick={() => void review("photo", "none")}>Reject photo</button>
+          <button className="primary" type="button" disabled={busy} onClick={() => void review("video", "verified")}>Approve video</button>
+          <button type="button" disabled={busy} onClick={() => void review("video", "none")}>Reject video</button>
+          <button className="primary" type="button" disabled={busy} onClick={() => void grant(!props.member.paidAccess)}>
+            {props.member.paidAccess ? "Remove paid access" : "Grant paid access"}
+          </button>
+        </>
       )}
-      <p className="home-copy">Photo check: {props.member.photoCheck ?? "none"}. Video check: {props.member.videoCheck ?? "none"}.</p>
-      <button className="primary" type="button" disabled={busy} onClick={() => void review("photo", "verified")}>Approve photo</button>
-      <button type="button" disabled={busy} onClick={() => void review("photo", "none")}>Reject photo</button>
-      <button className="primary" type="button" disabled={busy} onClick={() => void review("video", "verified")}>Approve video</button>
-      <button type="button" disabled={busy} onClick={() => void review("video", "none")}>Reject video</button>
-      <button className="primary" type="button" disabled={busy} onClick={() => void grant(!props.member.paidAccess)}>
-        {props.member.paidAccess ? "Remove paid access" : "Grant paid access"}
-      </button>
     </>
   );
 }

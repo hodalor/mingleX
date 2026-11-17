@@ -363,10 +363,14 @@ class _DeckScreenState extends State<DeckScreen> {
                       _viewing = null;
                     });
                   }
+                  if (value == 'delete') {
+                    _deleteAccount();
+                  }
                   if (value == 'out') widget.onSignOut();
                 },
                 itemBuilder: (context) => const [
                   PopupMenuItem(value: 'profile', child: Text('My profile')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete my account')),
                   PopupMenuItem(value: 'out', child: Text('Sign out')),
                 ],
               ),
@@ -568,8 +572,52 @@ class _DeckScreenState extends State<DeckScreen> {
           style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE84AA8), minimumSize: const Size.fromHeight(52)),
           child: const Text('Save about you'),
         ),
+        const SizedBox(height: 32),
+        const Text('Delete my account', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFFFF6B7A))),
+        const SizedBox(height: 8),
+        const Text('Leave mingleX permanently. You stop appearing in discovery and cannot sign back in.'),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: _busy ? null : _deleteAccount,
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF6B7A), foregroundColor: const Color(0xFF161D2F), minimumSize: const Size.fromHeight(52)),
+          child: const Text('Delete my account'),
+        ),
+        const SizedBox(height: 24),
       ],
     );
+  }
+
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF161D2F),
+        title: const Text('Delete your account?'),
+        content: const Text('You will be signed out and leave discovery. This cannot be undone from the app.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Color(0xFFFF6B7A), fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
+    try {
+      await widget.api.deleteJson('/api/me', token: widget.token, body: {'reason': 'user_requested'});
+      if (!mounted) return;
+      widget.onSignOut();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Widget _choiceGroup(String title, String selected, List<List<String>> options, ValueChanged<String> onChanged) {

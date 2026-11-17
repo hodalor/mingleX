@@ -19,7 +19,7 @@ export async function recordSwipe(fromUserId: string, toUserId: string, directio
     throw new HttpError(400, "You cannot swipe on yourself");
   }
 
-  const target = await User.findOne({ _id: toUserId, role: "user", isBanned: false });
+  const target = await User.findOne({ _id: toUserId, role: "user", isBanned: false, deletedAt: null });
   if (!target) {
     throw new HttpError(404, "Profile not found");
   }

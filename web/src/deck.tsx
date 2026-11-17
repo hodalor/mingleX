@@ -344,6 +344,7 @@ export function DeckApp(props: { token: string; onSignOut: () => void }) {
               <button className="menu-backdrop" type="button" aria-label="Close menu" onClick={() => setMenuOpen(false)} />
               <div className="account-pop">
                 <button type="button" onClick={() => { setMenuOpen(false); setOpened(null); setTab("profile"); }}>My profile</button>
+                <button type="button" onClick={() => { setMenuOpen(false); setOpened(null); setTab("settings"); window.location.hash = "delete-account"; }}>Delete my account</button>
                 <button type="button" onClick={props.onSignOut}>Sign out</button>
               </div>
             </>
@@ -513,6 +514,7 @@ export function DeckApp(props: { token: string; onSignOut: () => void }) {
           <DiscoverySettings token={props.token} onSaved={() => void loadDeck()} />
           <PlusCheckout token={props.token} />
           <AboutYou token={props.token} />
+          <DeleteAccount token={props.token} onDeleted={props.onSignOut} />
         </div>
       )}
       {tab === "profile" && <MyProfile token={props.token} />}
@@ -998,6 +1000,49 @@ function AboutYou(props: { token: string }) {
         </>
       )}
     </form>
+  );
+}
+
+function DeleteAccount(props: { token: string; onDeleted: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (window.location.hash === "#delete-account") {
+      document.getElementById("delete-account")?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
+
+  async function removeAccount() {
+    const confirmed = window.confirm(
+      "Delete your mingleX account? You will be signed out and leave discovery. This cannot be undone from the app.",
+    );
+    if (!confirmed) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api("/api/me", { method: "DELETE", body: JSON.stringify({ reason: "user_requested" }) }, props.token);
+      showToast("Your account was deleted.");
+      props.onDeleted();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Couldn't delete the account.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="danger-zone" id="delete-account">
+      <h2>Delete my account</h2>
+      <p>
+        Permanently leave mingleX. You stop appearing in discovery and cannot sign back in with this account.
+        More detail: <a href="/delete">/delete</a>
+      </p>
+      {error && <p className="error">{error}</p>}
+      <button className="danger-btn" type="button" disabled={busy} onClick={() => void removeAccount()}>
+        Delete my account
+      </button>
+    </section>
   );
 }
 

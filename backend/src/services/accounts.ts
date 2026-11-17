@@ -9,8 +9,9 @@ type ProviderName = "google" | "apple";
 
 export async function issueSession(userId: string) {
   const user = await User.findById(userId);
-  if (!user || user.isBanned) {
-    throw new HttpError(user?.isBanned ? 403 : 401, user?.isBanned ? "This account is banned" : "Account unavailable");
+  if (!user || user.isBanned || user.deletedAt) {
+    const blocked = Boolean(user?.isBanned || user?.deletedAt);
+    throw new HttpError(blocked ? 403 : 401, user?.deletedAt ? "This account was deleted" : user?.isBanned ? "This account is banned" : "Account unavailable");
   }
   user.lastActiveAt = new Date();
   await user.save();

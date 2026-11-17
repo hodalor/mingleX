@@ -365,9 +365,9 @@ function GetStarted(props: {
       <h1>Get Started</h1>
       <p className="legal">
         By tapping Log in or Continue, you agree to the mingleX{" "}
-        <button type="button" onClick={() => props.onLegal("terms")}>Terms</button>. Learn how we process your data in the{" "}
-        <button type="button" onClick={() => props.onLegal("privacy")}>Privacy Policy</button> and{" "}
-        <button type="button" onClick={() => props.onLegal("cookies")}>Cookie Policy</button>.
+        <a href="/tandc">Terms</a>. Learn how we process your data in the{" "}
+        <a href="/privacy">Privacy Policy</a>. To leave mingleX, see{" "}
+        <a href="/delete">Delete account</a>.
       </p>
       <div className="stack">
         {props.error && <p className="error">{props.error}</p>}
@@ -725,7 +725,7 @@ const legalText: Record<DocName, { title: string; paragraphs: string[] }> = {
     paragraphs: [
       "We store the profile details you give us, your likes, matches, and messages so the product can work.",
       "Google, Apple, and your phone carrier only confirm who you are. We keep the identifier they return and, when they share it, your email or phone number.",
-      "You can ask an admin to ban or remove an account that should not be on mingleX.",
+      "You can delete your own account anytime from Settings or at /delete. Staff may keep a limited deleted record for safety and audit.",
     ],
   },
   cookies: {

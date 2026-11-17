@@ -296,3 +296,37 @@ profileRouter.post(
     res.json({ saved: true });
   }),
 );
+
+profileRouter.delete(
+  "/",
+  asyncHandler(async (req, res) => {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      throw new HttpError(401, "Account unavailable");
+    }
+    if (user.role === "admin") {
+      throw new HttpError(400, "Admin accounts cannot be deleted here");
+    }
+    if (user.deletedAt) {
+      res.json({ deleted: true });
+      return;
+    }
+
+    const reason =
+      typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 240) : "";
+    const stamp = user.id;
+    // Free unique login fields so the same email/phone can register again; admin still sees the record.
+    if (user.email) user.email = `deleted+${stamp}+${user.email}`;
+    if (user.phone) user.phone = `deleted+${stamp}+${user.phone}`;
+    user.set("googleId", undefined);
+    user.set("appleId", undefined);
+    user.set("deviceTokens", []);
+    user.set("photos", []);
+    user.verificationPhoto = "";
+    user.verificationVideo = "";
+    user.deletedAt = new Date();
+    user.deleteReason = reason;
+    await user.save();
+    res.json({ deleted: true });
+  }),
+);

@@ -33,14 +33,15 @@ function listWindow(value: unknown, total: number) {
 adminRouter.get(
   "/stats",
   asyncHandler(async (_req, res) => {
-    const [users, matches, openReports, bannedUsers, blocks] = await Promise.all([
-      User.countDocuments({ role: "user" }),
+    const [users, matches, openReports, bannedUsers, deletedUsers, blocks] = await Promise.all([
+      User.countDocuments({ role: "user", deletedAt: null }),
       Match.countDocuments({ status: { $ne: "pending" } }),
       Report.countDocuments({ status: "open" }),
-      User.countDocuments({ isBanned: true }),
+      User.countDocuments({ isBanned: true, deletedAt: null }),
+      User.countDocuments({ role: "user", deletedAt: { $ne: null } }),
       Block.countDocuments(),
     ]);
-    res.json({ users, matches, openReports, bannedUsers, blocks });
+    res.json({ users, matches, openReports, bannedUsers, deletedUsers, blocks });
   }),
 );
 
@@ -49,12 +50,19 @@ adminRouter.get(
   asyncHandler(async (req, res) => {
     const search = typeof req.query.q === "string" ? req.query.q.trim() : "";
     const banned = typeof req.query.banned === "string" ? req.query.banned : "";
+    const deleted = typeof req.query.deleted === "string" ? req.query.deleted : "";
     const filter: Record<string, unknown> = { role: "user" };
     if (search) {
       filter.$or = [
         { email: new RegExp(escapeRegex(search), "i") },
         { name: new RegExp(escapeRegex(search), "i") },
       ];
+    }
+    if (deleted === "true") {
+      filter.deletedAt = { $ne: null };
+    } else if (deleted === "false" || deleted === "") {
+      // Default list hides soft-deleted members; pass deleted=true to audit them.
+      filter.deletedAt = null;
     }
     if (banned === "true" || banned === "false") {
       filter.isBanned = banned === "true";

@@ -35,6 +35,8 @@ export type AccountSource = ProfileSource & {
   discoveryMaxAge?: number;
   isBanned?: boolean;
   banReason?: string;
+  deletedAt?: Date | null;
+  deleteReason?: string;
   paidAccess?: boolean;
   createdAt?: Date;
   lastActiveAt?: Date;
@@ -106,6 +108,8 @@ export function toAdminUser(user: AccountSource) {
     ...toMe(user),
     isBanned: Boolean(user.isBanned),
     banReason: user.banReason ?? "",
+    deletedAt: user.deletedAt ?? null,
+    deleteReason: user.deleteReason ?? "",
     paidAccess: Boolean(user.paidAccess),
     createdAt: user.createdAt ?? null,
     lastActiveAt: user.lastActiveAt ?? null,

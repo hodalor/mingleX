@@ -10,7 +10,7 @@ import { orderedPair, toMatchDto } from "./matches.js";
 
 async function profilesFor(ids: string[], superIds: Set<string>, from?: number[] | null) {
   if (ids.length === 0) return [];
-  const people = await User.find({ _id: { $in: ids }, role: "user", isBanned: false });
+  const people = await User.find({ _id: { $in: ids }, role: "user", isBanned: false, deletedAt: null });
   const byId = new Map(people.map((person) => [person.id, person]));
   return ids.flatMap((id) => {
     const person = byId.get(id);

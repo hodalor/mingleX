@@ -58,6 +58,8 @@ const userSchema = new Schema(
     role: { type: String, enum: ["user", "admin"], default: "user" },
     isBanned: { type: Boolean, default: false },
     banReason: { type: String, default: "" },
+    deletedAt: { type: Date, default: null },
+    deleteReason: { type: String, default: "" },
     paidAccess: { type: Boolean, default: false },
     photoCheck: { type: String, enum: ["none", "pending", "verified"], default: "none" },
     videoCheck: { type: String, enum: ["none", "pending", "verified"], default: "none" },

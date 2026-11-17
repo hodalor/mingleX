@@ -75,11 +75,13 @@ h1 {
   font-size: 18px;
 }
 
+.legal a,
 .legal button {
   padding: 0;
   border: 0;
   background: none;
   color: #e84aa8;
+  font: inherit;
   font-weight: 700;
   text-decoration: underline;
 }
@@ -728,3 +730,81 @@ input[type="range"] {
 .profile-page h2 { margin: 0; text-align: left; font-size: 22px; color: #f4f1ff; }
 .phone-box { padding: 14px; border-radius: 18px; background: #161d2f; }
 .profile-preview { min-height: 280px; }
+
+.policy-page {
+  max-width: 720px;
+  margin: 0 auto;
+  gap: 12px;
+}
+
+.policy-home {
+  color: #e84aa8;
+  font-weight: 700;
+  text-decoration: none;
+  margin-bottom: 8px;
+}
+
+.policy-page h1 {
+  text-align: left;
+  font-size: 36px;
+  margin: 8px 0 4px;
+}
+
+.policy-body {
+  color: #b8b3c9;
+  display: grid;
+  gap: 12px;
+}
+
+.policy-body h2 {
+  margin: 12px 0 0;
+  color: #f4f1ff;
+  font-size: 20px;
+}
+
+.policy-body p,
+.policy-body li {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.policy-body a { color: #2ee6c5; }
+
+.policy-body ol {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 8px;
+}
+
+.danger-zone {
+  margin-top: 28px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid #3a1d28;
+  background: #1a1218;
+  display: grid;
+  gap: 10px;
+}
+
+.danger-zone h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #ff6b7a;
+}
+
+.danger-zone p {
+  margin: 0;
+  color: #b8b3c9;
+}
+
+.danger-btn {
+  border: 0;
+  border-radius: 10px;
+  height: 48px;
+  font-weight: 700;
+  background: #ff6b7a;
+  color: #161d2f;
+}
+
+.danger-btn:disabled { opacity: 0.6; }

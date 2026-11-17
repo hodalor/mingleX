@@ -97,6 +97,9 @@ authRouter.post(
     if (!user) {
       throw new HttpError(401, "Email or password is incorrect");
     }
+    if (user.deletedAt) {
+      throw new HttpError(403, "This account was deleted");
+    }
     if (user.isBanned) {
       throw new HttpError(403, "This account is banned");
     }

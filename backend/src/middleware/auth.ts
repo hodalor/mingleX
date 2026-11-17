@@ -12,8 +12,8 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
 
   try {
     const payload = verifyToken(header.slice("Bearer ".length));
-    const user = await User.findById(payload.sub).select("role isBanned");
-    if (!user || user.isBanned) {
+    const user = await User.findById(payload.sub).select("role isBanned deletedAt");
+    if (!user || user.isBanned || user.deletedAt) {
       next(new HttpError(401, "Account unavailable"));
       return;
     }

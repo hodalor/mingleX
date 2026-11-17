@@ -41,6 +41,7 @@ discoverRouter.get(
       _id: { $nin: [me._id, ...alreadySwiped, ...hidden] },
       role: "user",
       isBanned: false,
+      deletedAt: null,
       "photos.0": { $exists: true },
       interestedIn: me.gender,
       birthDate: { $gt: ages.after, $lte: ages.through },
