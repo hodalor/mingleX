@@ -914,14 +914,36 @@ class _DeckScreenState extends State<DeckScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${_titleOf(card)}${card['verified'] == true ? ' · Verified' : ''}${card['videoVerified'] == true ? ' · Video' : ''}',
-                          style: const TextStyle(color: Color(0xFFF4F1FF), fontSize: 28, fontWeight: FontWeight.w800),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                _titleOf(card),
+                                style: const TextStyle(color: Color(0xFFF4F1FF), fontSize: 28, fontWeight: FontWeight.w800, shadows: [
+                                  Shadow(color: Color(0x99000000), blurRadius: 6),
+                                ]),
+                              ),
+                            ),
+                            if (card['verified'] == true) ...[
+                              const SizedBox(width: 8),
+                              const Icon(Icons.verified, color: Color(0xFF2EE6C5), size: 26),
+                            ],
+                            if (card['videoVerified'] == true) ...[
+                              const SizedBox(width: 4),
+                              const Icon(Icons.verified, color: Color(0xFF9468F9), size: 26),
+                            ],
+                          ],
                         ),
                         if (_subtitleOf(card).isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: Text(_subtitleOf(card), style: const TextStyle(color: Color(0xFFF4F1FF))),
+                            child: Text(
+                              _subtitleOf(card),
+                              style: const TextStyle(
+                                color: Color(0xFFF4F1FF),
+                                shadows: [Shadow(color: Color(0x99000000), blurRadius: 6)],
+                              ),
+                            ),
                           ),
                         if ((card['bio']?.toString() ?? '').isNotEmpty)
                           Padding(

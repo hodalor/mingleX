@@ -38,6 +38,8 @@ export type AccountSource = ProfileSource & {
   deletedAt?: Date | null;
   deleteReason?: string;
   paidAccess?: boolean;
+  verificationPhoto?: string | null;
+  verificationVideo?: string | null;
   createdAt?: Date;
   lastActiveAt?: Date;
 };
@@ -111,6 +113,8 @@ export function toAdminUser(user: AccountSource) {
     deletedAt: user.deletedAt ?? null,
     deleteReason: user.deleteReason ?? "",
     paidAccess: Boolean(user.paidAccess),
+    verificationPhoto: user.verificationPhoto || null,
+    verificationVideo: user.verificationVideo || null,
     createdAt: user.createdAt ?? null,
     lastActiveAt: user.lastActiveAt ?? null,
     birthDate: user.birthDate ? user.birthDate.toISOString().slice(0, 10) : null,

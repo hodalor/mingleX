@@ -4,6 +4,7 @@ import { env } from "../config/env.js";
 import { User } from "../models/User.js";
 import { completePhoneSignup, continueWithVerifiedPhone, issueSession, loginWithProvider } from "../services/accounts.js";
 import { firebaseConfigured, phoneFromFirebaseToken } from "../services/firebase.js";
+import { findActiveByEmail, findActiveByPhone } from "../services/identity.js";
 import { mailConfigured } from "../services/mail.js";
 import { requestPasswordReset, resetPassword } from "../services/passwordReset.js";
 import { sendPhoneCode, verifyPhoneCode } from "../services/phone.js";
@@ -66,10 +67,10 @@ authRouter.post(
     }
     if (input.phone && input.phoneProof) {
       assertSignupProof(input.phoneProof, "phone", input.phone);
-      const takenPhone = await User.findOne({ phone: input.phone });
+      const takenPhone = await findActiveByPhone(input.phone);
       if (takenPhone) throw new HttpError(409, "That number is already on another account");
     }
-    const existing = await User.findOne({ email });
+    const existing = await findActiveByEmail(email);
     if (existing) {
       throw new HttpError(409, "An account with this email already exists");
     }

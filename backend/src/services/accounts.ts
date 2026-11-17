@@ -3,6 +3,7 @@ import { User } from "../models/User.js";
 import { needsOnboarding, toMe, type AccountSource } from "../serializers/user.js";
 import { HttpError } from "../utils/httpError.js";
 import { signToken, type UserRole } from "../utils/tokens.js";
+import { findActiveByEmail, findActiveByPhone } from "./identity.js";
 import { signSignupProof } from "./signup.js";
 
 type ProviderName = "google" | "apple";
@@ -37,10 +38,10 @@ export async function loginWithProvider(input: {
 }) {
   const idField = input.provider === "google" ? "googleId" : "appleId";
   const email = input.email?.toLowerCase();
-  let user = await User.findOne({ [idField]: input.subject });
+  let user = await User.findOne({ [idField]: input.subject, deletedAt: null });
 
   if (!user && email && input.emailVerified) {
-    user = await User.findOne({ email });
+    user = await findActiveByEmail(email);
     if (user) {
       const linkedSubject = user.get(idField) as string | undefined;
       if (linkedSubject && linkedSubject !== input.subject) {
@@ -52,6 +53,10 @@ export async function loginWithProvider(input: {
   }
 
   if (!user) {
+    if (email && input.emailVerified) {
+      const taken = await findActiveByEmail(email);
+      if (taken) throw new HttpError(409, "An account with this email already exists");
+    }
     user = await User.create({
       [idField]: input.subject,
       ...(email && input.emailVerified ? { email } : {}),
@@ -68,7 +73,7 @@ export async function loginWithProvider(input: {
 }
 
 export async function continueWithVerifiedPhone(phone: string) {
-  const user = await User.findOne({ phone });
+  const user = await findActiveByPhone(phone);
   if (!user) {
     return { needsPassword: true as const, phone, proof: signSignupProof("phone", phone) };
   }
@@ -84,7 +89,7 @@ export async function completePhoneSignup(input: {
   birthDate: Date;
   gender: "woman" | "man" | "nonbinary";
 }) {
-  const existing = await User.findOne({ phone: input.phone });
+  const existing = await findActiveByPhone(input.phone);
   if (existing) throw new HttpError(409, "That number already has an account");
   const passwordHash = await bcrypt.hash(input.password, 12);
   const user = await User.create({

@@ -42,7 +42,8 @@ type Member = {
   education: string | null;
   kids: string | null;
   heightCm: number | null;
-  photos: { url: string; isPrimary: boolean }[];
+  photos: { url: string; isPrimary: boolean; kind?: "image" | "video" }[];
+  providers?: string[];
   isBanned: boolean;
   banReason: string;
   deletedAt: string | null;
@@ -56,6 +57,9 @@ type Member = {
   paidAccess: boolean;
   photoCheck?: "none" | "pending" | "verified";
   videoCheck?: "none" | "pending" | "verified";
+  verificationPhoto?: string | null;
+  verificationVideo?: string | null;
+  birthDate?: string | null;
 };
 
 type ReportRow = {
@@ -546,13 +550,14 @@ function MemberDetail(props: { token: string; member: Member; onChanged: (member
   const [reason, setReason] = useState(props.member.banReason);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const photo = props.member.photos.find((item) => item.isPrimary)?.url ?? props.member.photos[0]?.url;
+  const [preview, setPreview] = useState<{ url: string; video: boolean; label: string } | null>(null);
+  const member = props.member;
 
   async function grant(paidAccess: boolean) {
     setBusy(true);
     setError("");
     try {
-      const result = await api<{ user: Member }>(`/api/admin/users/${props.member.id}/access`, {
+      const result = await api<{ user: Member }>(`/api/admin/users/${member.id}/access`, {
         method: "PATCH",
         body: JSON.stringify({ paidAccess }),
       }, props.token);
@@ -569,7 +574,7 @@ function MemberDetail(props: { token: string; member: Member; onChanged: (member
     setBusy(true);
     setError("");
     try {
-      const result = await api<{ user: Member }>(`/api/admin/users/${props.member.id}/verification`, {
+      const result = await api<{ user: Member }>(`/api/admin/users/${member.id}/verification`, {
         method: "PATCH",
         body: JSON.stringify({ [kind]: value }),
       }, props.token);
@@ -586,7 +591,7 @@ function MemberDetail(props: { token: string; member: Member; onChanged: (member
     setBusy(true);
     setError("");
     try {
-      const result = await api<{ user: Member }>(`/api/admin/users/${props.member.id}/ban`, {
+      const result = await api<{ user: Member }>(`/api/admin/users/${member.id}/ban`, {
         method: "PATCH",
         body: JSON.stringify({ banned, reason: reason.trim() }),
       }, props.token);
@@ -600,33 +605,96 @@ function MemberDetail(props: { token: string; member: Member; onChanged: (member
 
   return (
     <>
-      {photo && <img className="portrait" src={mediaUrl(photo)} alt="" />}
+      <section className="media-block">
+        <h3>Profile media</h3>
+        {member.photos.length === 0 ? (
+          <p className="muted">No photos or videos on this profile.</p>
+        ) : (
+          <div className="media-grid">
+            {member.photos.map((item) => {
+              const src = mediaUrl(item.url);
+              const video = item.kind === "video";
+              return (
+                <button
+                  key={item.url}
+                  type="button"
+                  className={`media-thumb${item.isPrimary ? " main" : ""}`}
+                  onClick={() => setPreview({ url: src, video, label: item.isPrimary ? "Main" : video ? "Video" : "Photo" })}
+                >
+                  {video ? <video src={src} muted /> : <img src={src} alt="" />}
+                  <span>{item.isPrimary ? "Main" : video ? "Video" : "Photo"}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="media-block">
+        <h3>Verification submissions</h3>
+        <p className="muted">
+          Photo check: {member.photoCheck ?? "none"}
+          {member.photoCheck === "verified" ? " ✓" : ""}. Video check: {member.videoCheck ?? "none"}
+          {member.videoCheck === "verified" ? " ✓" : ""}.
+        </p>
+        <div className="media-grid">
+          {member.verificationPhoto ? (
+            <button
+              type="button"
+              className="media-thumb"
+              onClick={() => setPreview({ url: mediaUrl(member.verificationPhoto!), video: false, label: "Photo check" })}
+            >
+              <img src={mediaUrl(member.verificationPhoto)} alt="" />
+              <span>Photo check</span>
+            </button>
+          ) : (
+            <p className="muted">No verification photo.</p>
+          )}
+          {member.verificationVideo ? (
+            <button
+              type="button"
+              className="media-thumb"
+              onClick={() => setPreview({ url: mediaUrl(member.verificationVideo!), video: true, label: "Video check" })}
+            >
+              <video src={mediaUrl(member.verificationVideo)} muted />
+              <span>Video check</span>
+            </button>
+          ) : (
+            <p className="muted">No verification video.</p>
+          )}
+        </div>
+      </section>
+
       <dl>
-        <dt>Email</dt><dd>{props.member.email ?? "—"}</dd>
-        <dt>Phone</dt><dd>{props.member.phone ?? "—"}</dd>
-        <dt>Age</dt><dd>{props.member.age ?? "—"}</dd>
-        <dt>Gender</dt><dd>{props.member.gender || "—"}</dd>
-        <dt>City</dt><dd>{props.member.city || "—"}</dd>
-        <dt>Work</dt><dd>{props.member.jobTitle || "—"}</dd>
-        <dt>Bio</dt><dd>{props.member.bio || "—"}</dd>
-        <dt>Looking for</dt><dd>{choiceLabel(props.member.lookingFor, lookingForLabels)}</dd>
-        <dt>Drinking</dt><dd>{choiceLabel(props.member.drinking, habitLabels)}</dd>
-        <dt>Smoking</dt><dd>{choiceLabel(props.member.smoking, habitLabels)}</dd>
-        <dt>Workout</dt><dd>{choiceLabel(props.member.workout, workoutLabels)}</dd>
-        <dt>Pets</dt><dd>{choiceLabel(props.member.pets, petLabels)}</dd>
-        <dt>Kids</dt><dd>{choiceLabel(props.member.kids, kidLabels)}</dd>
-        <dt>Education</dt><dd>{choiceLabel(props.member.education, educationLabels)}</dd>
-        <dt>Height</dt><dd>{props.member.heightCm ? `${props.member.heightCm} cm` : "—"}</dd>
-        <dt>Interests</dt><dd>{props.member.interests.join(", ") || "—"}</dd>
-        <dt>Shows</dt><dd>{props.member.interestedIn.join(", ") || "—"}</dd>
-        <dt>Distance</dt><dd>{props.member.discoveryRadiusKm} km</dd>
-        <dt>Ages</dt><dd>{props.member.discoveryMinAge}–{props.member.discoveryMaxAge}</dd>
-        <dt>Last active</dt><dd>{when(props.member.lastActiveAt)}</dd>
-        <dt>Deleted</dt><dd>{props.member.deletedAt ? when(props.member.deletedAt) : "No"}</dd>
-        <dt>Delete reason</dt><dd>{props.member.deleteReason || "—"}</dd>
+        <dt>Email</dt><dd>{member.email ?? "—"}</dd>
+        <dt>Phone</dt><dd>{member.phone ?? "—"}</dd>
+        <dt>Providers</dt><dd>{(member.providers ?? []).join(", ") || "—"}</dd>
+        <dt>Birthday</dt><dd>{member.birthDate ?? "—"}</dd>
+        <dt>Age</dt><dd>{member.age ?? "—"}</dd>
+        <dt>Gender</dt><dd>{member.gender || "—"}</dd>
+        <dt>City</dt><dd>{member.city || "—"}</dd>
+        <dt>Work</dt><dd>{member.jobTitle || "—"}</dd>
+        <dt>Bio</dt><dd>{member.bio || "—"}</dd>
+        <dt>Looking for</dt><dd>{choiceLabel(member.lookingFor, lookingForLabels)}</dd>
+        <dt>Drinking</dt><dd>{choiceLabel(member.drinking, habitLabels)}</dd>
+        <dt>Smoking</dt><dd>{choiceLabel(member.smoking, habitLabels)}</dd>
+        <dt>Workout</dt><dd>{choiceLabel(member.workout, workoutLabels)}</dd>
+        <dt>Pets</dt><dd>{choiceLabel(member.pets, petLabels)}</dd>
+        <dt>Kids</dt><dd>{choiceLabel(member.kids, kidLabels)}</dd>
+        <dt>Education</dt><dd>{choiceLabel(member.education, educationLabels)}</dd>
+        <dt>Height</dt><dd>{member.heightCm ? `${member.heightCm} cm` : "—"}</dd>
+        <dt>Interests</dt><dd>{member.interests.join(", ") || "—"}</dd>
+        <dt>Shows</dt><dd>{member.interestedIn.join(", ") || "—"}</dd>
+        <dt>Distance</dt><dd>{member.discoveryRadiusKm} km</dd>
+        <dt>Ages</dt><dd>{member.discoveryMinAge}–{member.discoveryMaxAge}</dd>
+        <dt>Paid access</dt><dd>{member.paidAccess ? "Yes" : "No"}</dd>
+        <dt>Joined</dt><dd>{when(member.createdAt)}</dd>
+        <dt>Last active</dt><dd>{when(member.lastActiveAt)}</dd>
+        <dt>Deleted</dt><dd>{member.deletedAt ? when(member.deletedAt) : "No"}</dd>
+        <dt>Delete reason</dt><dd>{member.deleteReason || "—"}</dd>
       </dl>
       {error && <p className="error">{error}</p>}
-      {props.member.deletedAt ? (
+      {member.deletedAt ? (
         <p className="muted">This account deleted itself. It stays here for staff audit only and cannot sign in or appear in discovery.</p>
       ) : (
         <>
@@ -634,20 +702,37 @@ function MemberDetail(props: { token: string; member: Member; onChanged: (member
             Ban reason
             <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} />
           </label>
-          {props.member.isBanned ? (
-            <button className="primary" type="button" disabled={busy} onClick={() => void ban(false)}>Unban</button>
-          ) : (
-            <button className="danger" type="button" disabled={busy} onClick={() => void ban(true)}>Ban from the apps</button>
-          )}
-          <p className="home-copy">Photo check: {props.member.photoCheck ?? "none"}. Video check: {props.member.videoCheck ?? "none"}.</p>
-          <button className="primary" type="button" disabled={busy} onClick={() => void review("photo", "verified")}>Approve photo</button>
-          <button type="button" disabled={busy} onClick={() => void review("photo", "none")}>Reject photo</button>
-          <button className="primary" type="button" disabled={busy} onClick={() => void review("video", "verified")}>Approve video</button>
-          <button type="button" disabled={busy} onClick={() => void review("video", "none")}>Reject video</button>
-          <button className="primary" type="button" disabled={busy} onClick={() => void grant(!props.member.paidAccess)}>
-            {props.member.paidAccess ? "Remove paid access" : "Grant paid access"}
-          </button>
+          <div className="actions">
+            {member.isBanned ? (
+              <button className="primary" type="button" disabled={busy} onClick={() => void ban(false)}>Unban</button>
+            ) : (
+              <button className="danger" type="button" disabled={busy} onClick={() => void ban(true)}>Ban from the apps</button>
+            )}
+            <button className="primary" type="button" disabled={busy} onClick={() => void review("photo", "verified")}>Approve photo ✓</button>
+            <button type="button" disabled={busy} onClick={() => void review("photo", "none")}>Reject photo</button>
+            <button className="primary" type="button" disabled={busy} onClick={() => void review("video", "verified")}>Approve video ✓</button>
+            <button type="button" disabled={busy} onClick={() => void review("video", "none")}>Reject video</button>
+            <button className="primary" type="button" disabled={busy} onClick={() => void grant(!member.paidAccess)}>
+              {member.paidAccess ? "Remove paid access" : "Grant paid access"}
+            </button>
+          </div>
         </>
+      )}
+      {preview && (
+        <div className="preview-layer" role="dialog" aria-modal="true">
+          <button className="preview-backdrop" type="button" aria-label="Close preview" onClick={() => setPreview(null)} />
+          <div className="preview-frame">
+            <div className="preview-top">
+              <strong>{preview.label}</strong>
+              <button type="button" onClick={() => setPreview(null)}>Close</button>
+            </div>
+            {preview.video ? (
+              <video src={preview.url} controls autoPlay playsInline />
+            ) : (
+              <img src={preview.url} alt={preview.label} />
+            )}
+          </div>
+        </div>
       )}
     </>
   );

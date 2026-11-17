@@ -184,7 +184,7 @@ profileRouter.post(
   "/phone/send",
   asyncHandler(async (req, res) => {
     const input = phoneSchema.parse(req.body);
-    const taken = await User.findOne({ phone: input.phone, _id: { $ne: req.userId } });
+    const taken = await User.findOne({ phone: input.phone, _id: { $ne: req.userId }, deletedAt: null });
     if (taken) {
       throw new HttpError(409, "That number is already on another account");
     }
@@ -197,7 +197,7 @@ profileRouter.post(
   "/phone/verify",
   asyncHandler(async (req, res) => {
     const input = phoneVerifySchema.parse(req.body);
-    const taken = await User.findOne({ phone: input.phone, _id: { $ne: req.userId } });
+    const taken = await User.findOne({ phone: input.phone, _id: { $ne: req.userId }, deletedAt: null });
     if (taken) {
       throw new HttpError(409, "That number is already on another account");
     }
@@ -217,7 +217,7 @@ profileRouter.post(
   asyncHandler(async (req, res) => {
     const input = firebasePhoneSchema.parse(req.body);
     const phone = await phoneFromFirebaseToken(input.idToken);
-    const taken = await User.findOne({ phone, _id: { $ne: req.userId } });
+    const taken = await User.findOne({ phone, _id: { $ne: req.userId }, deletedAt: null });
     if (taken) throw new HttpError(409, "That number is already on another account");
     const user = await User.findById(req.userId);
     if (!user) throw new HttpError(401, "Account unavailable");

@@ -2,9 +2,9 @@ import { createHash, randomInt } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { SignupCode } from "../models/SignupCode.js";
-import { User } from "../models/User.js";
 import { HttpError } from "../utils/httpError.js";
 import { phoneFromFirebaseToken } from "./firebase.js";
+import { findActiveByEmail, findActiveByPhone } from "./identity.js";
 import { mailConfigured, sendSignupCode } from "./mail.js";
 
 function hashCode(channel: string, target: string, code: string): string {
@@ -59,10 +59,10 @@ async function issueEmailCode(email: string): Promise<void> {
 
 export async function sendSignupCodes(email: string, phone?: string): Promise<{ sent: true }> {
   const normalized = email.toLowerCase();
-  const existing = await User.findOne({ email: normalized });
+  const existing = await findActiveByEmail(normalized);
   if (existing) throw new HttpError(409, "An account with this email already exists");
   if (phone) {
-    const taken = await User.findOne({ phone });
+    const taken = await findActiveByPhone(phone);
     if (taken) throw new HttpError(409, "That number is already on another account");
   }
   await issueEmailCode(normalized);

@@ -282,7 +282,11 @@ export function MyProfile(props: { token: string }) {
       <h1 className="form-title">My profile</h1>
       <article className="deck-card profile-preview" style={{ backgroundImage: main ? `url("${mediaUrl(main.url) ?? ""}")` : undefined }}>
         <div className="deck-meta">
-          <h2>{account.age ? `${account.name}, ${account.age}` : account.name || "Your name"}</h2>
+          <h2>
+            {account.age ? `${account.name}, ${account.age}` : account.name || "Your name"}
+            {account.photoCheck === "verified" && <span className="verified-badge" title="Photo verified">✓</span>}
+            {account.videoCheck === "verified" && <span className="verified-badge video" title="Video verified">✓</span>}
+          </h2>
           <p>{[account.jobTitle, account.city].filter(Boolean).join(" · ") || "Add a job or city"}</p>
           {account.bio && <p>{account.bio}</p>}
           {facts.length > 0 && <div className="chips">{facts.map((fact) => <span key={fact}>{fact}</span>)}</div>}

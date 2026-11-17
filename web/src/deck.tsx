@@ -386,7 +386,11 @@ export function DeckApp(props: { token: string; onSignOut: () => void }) {
             )}
             <button className="card-menu" type="button" disabled={busy} onClick={() => openSafety(current)} aria-label="Report or block">···</button>
             <div className="deck-meta">
-              <h2>{profileTitle(current)}{current.verified ? " · Verified" : ""}{current.videoVerified ? " · Video" : ""}</h2>
+              <h2>
+                {profileTitle(current)}
+                {current.verified && <span className="verified-badge" title="Photo verified">✓</span>}
+                {current.videoVerified && <span className="verified-badge video" title="Video verified">✓</span>}
+              </h2>
               <p>
                 {[current.jobTitle, current.city, current.distanceKm !== undefined ? `${current.distanceKm} km away` : ""]
                   .filter(Boolean)
@@ -1089,20 +1093,28 @@ function PersonDetail(props: {
       <article className="deck-card person-card" style={photo && photo.kind !== "video" ? { backgroundImage: `url("${mediaUrl(photo.url)}")` } : undefined}>
         {photo?.kind === "video" && <video className="deck-video" src={mediaUrl(photo.url)} playsInline controls />}
         <div className="deck-meta">
-          <h2>{profileTitle(person)}</h2>
+          <h2>
+            {profileTitle(person)}
+            {person.verified && <span className="verified-badge" title="Photo verified">✓</span>}
+            {person.videoVerified && <span className="verified-badge video" title="Video verified">✓</span>}
+          </h2>
         </div>
       </article>
       {person.photos.length > 1 && (
         <div className="photo-picks">
           {person.photos.map((item, index) => (
             <button key={item.url} type="button" className={index === photoIndex ? "selected" : ""} onClick={() => setPhotoIndex(index)}>
-              <img src={mediaUrl(item.url)} alt="" />
+              {item.kind === "video" ? <video src={mediaUrl(item.url)} muted /> : <img src={mediaUrl(item.url)} alt="" />}
             </button>
           ))}
         </div>
       )}
       <section className="detail-sheet">
-        <h2>{profileTitle(person)}</h2>
+        <h2>
+          {profileTitle(person)}
+          {person.verified && <span className="verified-badge" title="Photo verified">✓</span>}
+          {person.videoVerified && <span className="verified-badge video" title="Video verified">✓</span>}
+        </h2>
         <p>{[person.jobTitle, place || "No city saved", gender].filter(Boolean).join(" · ")}</p>
         <p>{person.phone ? `Phone ${person.phone}` : "No phone number on this profile"}</p>
         {person.bio ? <p>{person.bio}</p> : <p>No bio yet.</p>}
