@@ -182,7 +182,12 @@ export default function App() {
         }));
         return;
       }
-      throw new ApiError(503, `${provider === "google" ? "Google" : "Apple"} sign-in is not configured yet`);
+      throw new ApiError(
+        503,
+        provider === "apple"
+          ? "Apple sign-in is not available. Use email, phone, or Google instead."
+          : "Google sign-in is not available. Use email or phone instead.",
+      );
     });
   }
 

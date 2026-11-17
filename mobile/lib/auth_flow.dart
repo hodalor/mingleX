@@ -2,11 +2,15 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'country_codes.dart';
 import 'deck_screen.dart';
 import 'love_wait.dart';
 import 'minglex_api.dart';
 import 'push.dart';
+
+const _webLegalBase = 'https://minglexx.netlify.app';
 
 class AuthFlow extends StatefulWidget {
   const AuthFlow({super.key});
@@ -107,20 +111,50 @@ class _AuthFlowState extends State<AuthFlow> {
     });
   }
 
+  Future<void> _openLegal(String path) async {
+    final uri = Uri.parse('$_webLegalBase$path');
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) showNote(context, "Couldn't open $uri");
+  }
+
   Future<void> _social(String provider) async {
     await _run(() async {
       final config = await _api.getJson('/api/auth/providers');
       final configured = provider == 'google' ? config['google'] == true : config['apple'] == true;
-      if (!configured && config['devPreview'] == true) {
-        final identity = await _api.devIdentity(provider);
-        _accept(await _api.postJson('/api/auth/dev/$provider', identity));
+
+      if (provider == 'apple') {
+        if (!configured) {
+          throw ApiException('Apple sign-in is not available. Use email, phone, or Google instead.');
+        }
+        throw ApiException('Apple sign-in is not available on Android yet. Use email, phone, or Google instead.');
+      }
+
+      if (provider == 'google') {
+        if (!configured) {
+          if (config['devPreview'] == true) {
+            final identity = await _api.devIdentity(provider);
+            _accept(await _api.postJson('/api/auth/dev/$provider', identity));
+            return;
+          }
+          throw ApiException('Google sign-in is not available. Use email or phone instead.');
+        }
+        final clientId = config['googleClientId']?.toString();
+        final google = GoogleSignIn(
+          scopes: const ['email', 'profile'],
+          serverClientId: (clientId != null && clientId.isNotEmpty) ? clientId : null,
+        );
+        final account = await google.signIn();
+        if (account == null) throw ApiException('Google sign-in was cancelled');
+        final auth = await account.authentication;
+        final accessToken = auth.accessToken;
+        if (accessToken == null || accessToken.isEmpty) {
+          throw ApiException("Google didn't return a token. Try again.");
+        }
+        _accept(await _api.postJson('/api/auth/google', {'accessToken': accessToken}));
         return;
       }
-      throw ApiException(
-        configured
-            ? 'Finish ${provider == 'google' ? 'Google' : 'Apple'} in the phone settings, then try again.'
-            : '${provider == 'google' ? 'Google' : 'Apple'} sign-in is not configured yet',
-      );
+
+      throw ApiException('That sign-in method is not available. Use email or phone instead.');
     });
   }
 
@@ -205,17 +239,54 @@ class _AuthFlowState extends State<AuthFlow> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Image.asset('assets/app_icon.png', width: 72, height: 72, fit: BoxFit.cover),
+        Center(
+          child: SizedBox(
+            width: 88,
+            height: 88,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: Image.asset('assets/app_icon.png', fit: BoxFit.contain),
+            ),
+          ),
         ),
         const SizedBox(height: 28),
         const Text('Get Started', textAlign: TextAlign.center, style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
-        const Text(
-          'By tapping Log in or Continue, you agree to the mingleX Terms. mingleX is for adults 18 and older.',
+        Text.rich(
+          TextSpan(
+            style: const TextStyle(fontSize: 16, height: 1.35, color: Color(0xFFB8B3C9)),
+            children: [
+              const TextSpan(text: 'By tapping Log in or Continue, you agree to the mingleX '),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.baseline,
+                baseline: TextBaseline.alphabetic,
+                child: GestureDetector(
+                  onTap: () => _openLegal('/tandc'),
+                  child: const Text('Terms', style: TextStyle(color: Color(0xFFE84AA8), fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
+                ),
+              ),
+              const TextSpan(text: '. Learn how we process your data in the '),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.baseline,
+                baseline: TextBaseline.alphabetic,
+                child: GestureDetector(
+                  onTap: () => _openLegal('/privacy'),
+                  child: const Text('Privacy Policy', style: TextStyle(color: Color(0xFFE84AA8), fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
+                ),
+              ),
+              const TextSpan(text: '. To leave mingleX, see '),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.baseline,
+                baseline: TextBaseline.alphabetic,
+                child: GestureDetector(
+                  onTap: () => _openLegal('/delete'),
+                  child: const Text('Delete account', style: TextStyle(color: Color(0xFFE84AA8), fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
+                ),
+              ),
+              const TextSpan(text: '. mingleX is for adults 18 and older.'),
+            ],
+          ),
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 16, height: 1.35),
         ),
         const SizedBox(height: 8),
         TextButton(onPressed: () => setState(() => _step = _Step.terms), child: const Text('Read the Terms')),
@@ -544,10 +615,24 @@ class _AuthFlowState extends State<AuthFlow> {
 
   Widget _terms() {
     return _page(
-      title: 'Terms',
+      title: 'Terms and policies',
       onBack: () => setState(() => _step = _Step.start),
-      children: const [
-        Text('mingleX is for adults 18 and older. Harassment, fake profiles, and sexual content involving minors are not allowed.'),
+      children: [
+        const Text(
+          'mingleX is a dating service for adults 18 and older. You are responsible for the photos and messages you send. Harassment, impersonation, and sexual content involving minors are not allowed. We can suspend accounts that break these rules.',
+          style: TextStyle(height: 1.4),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'We store the profile details you give us, your likes, matches, and messages so the product can work. You can delete your account anytime from Settings.',
+          style: TextStyle(height: 1.4),
+        ),
+        const SizedBox(height: 20),
+        _outline('Open full Terms', Icons.description_outlined, () => _openLegal('/tandc')),
+        const SizedBox(height: 12),
+        _outline('Open Privacy Policy', Icons.privacy_tip_outlined, () => _openLegal('/privacy')),
+        const SizedBox(height: 12),
+        _outline('How to delete your account', Icons.delete_outline, () => _openLegal('/delete')),
       ],
     );
   }
